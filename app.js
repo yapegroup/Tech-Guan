@@ -254,14 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!jsonRows || jsonRows.length === 0) return;
 
-    // Find Product column index (default column 0 or header matching 'Product')
+    // Find Product column index (search top 10 rows for 'Product' header)
     let prodColIdx = 0;
-    const headerRow = jsonRows[0] || [];
-    for (let c = 0; c < headerRow.length; c++) {
-      const h = String(headerRow[c] || '').trim().toLowerCase();
-      if (h === 'product' || h === 'product id' || h === 'material') {
-        prodColIdx = c;
-        break;
+    for (let r = 0; r < Math.min(10, jsonRows.length); r++) {
+      const row = jsonRows[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const val = String(row[c] || '').trim().toLowerCase();
+        if (val === 'product' || val === 'product id' || val === 'material') {
+          prodColIdx = c;
+          break;
+        }
       }
     }
 
@@ -269,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = jsonRows[r];
       if (row && row[prodColIdx] != null) {
         const val = String(row[prodColIdx]).trim().toUpperCase();
-        if (val && val !== 'PRODUCT' && val !== 'PRODUCT ID') {
+        if (val && val !== 'PRODUCT' && val !== 'PRODUCT ID' && !val.includes('SUMMARY')) {
           masterProductSet.add(val);
         }
       }
@@ -314,12 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function validateColumnsAndContent(rows) {
-    if (!rows || rows.length < 2) return false;
+    if (!rows || rows.length < 1) return false;
     const sampleText = JSON.stringify(rows.slice(0, 100));
-    const hasValidMemberCodes = /\b(MB|UB|CPLN|UC)\d+/i.test(sampleText);
-    const hasValidIDPatterns = /\b(B\d+|T\d+|W\d+|R\d+|ST\d+|S\d+)\b/i.test(sampleText);
-
-    return hasValidMemberCodes && hasValidIDPatterns;
+    return /\b(MB|UB|CPLN|UC)\d+/i.test(sampleText);
   }
 
   // --- LOG ENGINE & REAL-TIME SEARCH NAVIGATION ---
@@ -455,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addLog(`Master Product List contains ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
   }
 
-  // --- EXCEL PROCESSING PIPELINE (NEW PRODUCT FILTERING) ---
+  // --- EXCEL PROCESSING PIPELINE WITH SMART HEADER & COMBINED CELL PARSER ---
   function processExcelRows(rawRows, fileName) {
     if (!validateColumnsAndContent(rawRows)) {
       showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${fileName}</em>' does not match expected Product Cutlist / Truss dataset.`);
@@ -466,7 +465,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const validRows = rawRows.filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
     const totalCount = validRows.length;
-    
+
+    // Detect Header Row and Column Index Mapping
+    let colMap = { truss: -1, id: -1, member: -1, length: -1, qty: -1, truss_id: -1 };
+    let headerRowIdx = -1;
+
+    for (let r = 0; r < Math.min(10, validRows.length); r++) {
+      const row = validRows[r];
+      let hasHeaderMatch = false;
+
+      for (let c = 0; c < row.length; c++) {
+        const hStr = String(row[c] || '').trim().toLowerCase();
+        if (!hStr) continue;
+
+        if (hStr.includes('truss') && hStr.includes('id')) {
+          colMap.truss_id = c; hasHeaderMatch = true;
+        } else if (hStr === 'truss') {
+          colMap.truss = c; hasHeaderMatch = true;
+        } else if (hStr === 'id' || hStr === 'truss id') {
+          colMap.id = c; hasHeaderMatch = true;
+        } else if (hStr === 'member' || hStr === 'member code' || hStr === 'material') {
+          colMap.member = c; hasHeaderMatch = true;
+        } else if (hStr === 'length' || hStr === 'len') {
+          colMap.length = c; hasHeaderMatch = true;
+        } else if (hStr === 'qty' || hStr === 'quantity') {
+          colMap.qty = c; hasHeaderMatch = true;
+        }
+      }
+
+      if (hasHeaderMatch && (colMap.member !== -1 || colMap.length !== -1)) {
+        headerRowIdx = r;
+        break;
+      }
+    }
+
     const newProductOutput = [];
     const seenProductIDs = new Set();
     let dupsCount = 0;
@@ -478,40 +510,77 @@ document.addEventListener('DOMContentLoaded', () => {
       const end = Math.min(index + batchSize, totalCount);
 
       for (; index < end; index++) {
+        if (index === headerRowIdx) continue; // Skip header row
+
         const row = validRows[index];
         const nonBlankCells = row.filter(c => String(c || '').trim() !== '');
         if (nonBlankCells.length === 0) continue;
 
-        let truss = '', idVal = '', memberCode = '', qty = '', length = '';
+        let truss = '', idVal = '', memberCode = '', qty = '1', length = '0';
 
-        for (let c = 0; c < row.length; c++) {
-          const val = String(row[c] || '').trim();
-          if (!val) continue;
-
-          if (!truss && /^(GI|HN|J|LH|RH|ST|S)\d+$/i.test(val)) truss = val;
-          else if (!idVal && /^(?:[A-Z]{1,3}\d{1,3}|[A-Z]\d+)$/i.test(val) && !/^(MB|UB|CPLN|UC)\d+/i.test(val)) idVal = val;
-          else if (!memberCode && /^(MB|UB|CPLN|UC)\d+/i.test(val)) memberCode = val;
+        // Extraction via Header Column Mapping
+        if (colMap.member !== -1 && colMap.member < row.length) {
+          memberCode = String(row[colMap.member] || '').trim();
+        }
+        if (colMap.length !== -1 && colMap.length < row.length) {
+          length = String(row[colMap.length] || '').trim();
+        }
+        if (colMap.qty !== -1 && colMap.qty < row.length) {
+          qty = String(row[colMap.qty] || '').trim();
+        }
+        if (colMap.truss_id !== -1 && colMap.truss_id < row.length) {
+          const combo = String(row[colMap.truss_id] || '').trim();
+          const parts = combo.split(/\s+/);
+          if (parts.length >= 2) { truss = parts[0]; idVal = parts[1]; }
+          else if (parts.length === 1) { truss = parts[0]; idVal = parts[0]; }
+        }
+        if (colMap.truss !== -1 && colMap.truss < row.length) {
+          truss = String(row[colMap.truss] || '').trim();
+        }
+        if (colMap.id !== -1 && colMap.id < row.length) {
+          idVal = String(row[colMap.id] || '').trim();
         }
 
-        if (!truss && row.length > 0) truss = String(row[0] || '').trim();
-        if (!idVal && row.length > 1) idVal = String(row[1] || '').trim();
-        if (!memberCode && row.length > 3) memberCode = String(row[3] || '').trim();
+        // Fallback search if header mapping missed memberCode
+        if (!memberCode) {
+          for (let c = 0; c < row.length; c++) {
+            const val = String(row[c] || '').trim();
+            if (/^(MB|UB|CPLN|UC)\d+/i.test(val)) {
+              memberCode = val; break;
+            }
+          }
+        }
 
-        if (!truss || !idVal || !memberCode || truss.toLowerCase().includes('material summary') || idVal.toLowerCase() === 'id' || memberCode.toLowerCase() === 'member') continue;
+        // Skip row if member code is invalid or header text
+        if (!memberCode || memberCode.toLowerCase() === 'member' || memberCode.toLowerCase().includes('summary')) {
+          continue;
+        }
 
-        const nums = row.map(c => String(c || '').trim()).filter(c => /^\d+$/.test(c));
-        if (nums.length >= 2) {
-          const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
-          if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
-          else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
-          else { qty = nums[0]; length = nums[1]; }
-        } else if (nums.length === 1) { length = nums[0]; qty = '1'; }
-        else { qty = '1'; length = '0'; }
+        // Fallback length and qty extraction
+        if (!length || length === '0') {
+          const nums = row.map(c => String(c || '').trim()).filter(c => /^\d+$/.test(c));
+          if (nums.length >= 2) {
+            const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
+            if (n1 > n2 && n1 > 50) { length = String(n1); if (!qty || qty === '1') qty = String(n2); }
+            else if (n2 > n1 && n2 > 50) { length = String(n2); if (!qty || qty === '1') qty = String(n1); }
+            else { if (!qty || qty === '1') qty = nums[0]; length = nums[1]; }
+          } else if (nums.length === 1) {
+            length = nums[0];
+          }
+        }
+
+        if (length === '0') continue;
+
+        if (!truss) truss = (row[0] ? String(row[0]).trim() : 'N/A');
+        if (!idVal) idVal = (row[1] ? String(row[1]).trim() : 'N/A');
 
         // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
-        if (memberCode.startsWith('MB')) productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
-        else if (memberCode.startsWith('UB')) productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
+        if (memberCode.toUpperCase().startsWith('MB')) {
+          productIDPrefixMember = 'CPLN' + memberCode.substring(2);
+        } else if (memberCode.toUpperCase().startsWith('UB')) {
+          productIDPrefixMember = 'UC' + memberCode.substring(2);
+        }
 
         // STEP 2: Create Product ID = Renamed Prefix + 'X' + Length
         const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
@@ -553,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE (NEW PRODUCT FILTERING) ---
+  // --- TEXT CUTLIST PROCESSING PIPELINE ---
   function processTextContent(txt, fileName) {
     const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
@@ -583,31 +652,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tokens = trimmed.split(/\s+/);
         
-        if (tokens.length >= 5 && /^(MB|UB|CPLN|UC)\d+/i.test(tokens[2])) {
-          const truss = tokens[0], idVal = tokens[1], memberCode = tokens[2], qty = tokens[3], length = tokens[4];
+        if (tokens.length >= 2) {
+          const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
+          if (memberTokenIdx !== -1) {
+            const memberCode = tokens[memberTokenIdx];
+            const truss = tokens[0] || 'N/A';
+            const idVal = tokens[1] || 'N/A';
+            
+            const nums = tokens.filter(t => /^\d+$/.test(t));
+            let length = '0', qty = '1';
+            if (nums.length >= 2) {
+              const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
+              if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
+              else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
+              else { qty = nums[0]; length = nums[1]; }
+            } else if (nums.length === 1) {
+              length = nums[0];
+            }
 
-          let productIDPrefixMember = memberCode;
-          if (memberCode.startsWith('MB')) productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
-          else if (memberCode.startsWith('UB')) productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
+            if (length === '0') continue;
 
-          const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
+            let productIDPrefixMember = memberCode;
+            if (memberCode.toUpperCase().startsWith('MB')) {
+              productIDPrefixMember = 'CPLN' + memberCode.substring(2);
+            } else if (memberCode.toUpperCase().startsWith('UB')) {
+              productIDPrefixMember = 'UC' + memberCode.substring(2);
+            }
 
-          if (seenProductIDs.has(productID)) {
-            dupsCount++;
-            addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
-            continue;
-          }
-          seenProductIDs.add(productID);
+            const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
 
-          if (masterProductSet.has(productID)) {
-            existingMatchRemovedCount++;
-            addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
-          } else {
-            addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
-            const record = [truss, idVal, memberCode, qty, length, productID];
-            cleanRecords.push(record);
-            const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
-            cleanTxtLines.push(formattedLine);
+            if (seenProductIDs.has(productID)) {
+              dupsCount++;
+              addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
+              continue;
+            }
+            seenProductIDs.add(productID);
+
+            if (masterProductSet.has(productID)) {
+              existingMatchRemovedCount++;
+              addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
+            } else {
+              addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
+              const record = [truss, idVal, memberCode, qty, length, productID];
+              cleanRecords.push(record);
+              const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
+              cleanTxtLines.push(formattedLine);
+            }
           }
         }
       }
