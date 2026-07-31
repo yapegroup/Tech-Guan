@@ -62,9 +62,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // UI Elements
-  const dropzone = document.getElementById('dropzone');
-  const fileInput = document.getElementById('fileInput');
+  // --- DUAL UPLOAD UI ELEMENTS ---
+  const cutlistDropzone = document.getElementById('cutlistDropzone');
+  const cutlistInput = document.getElementById('cutlistInput');
+  const cutlistBtn = document.getElementById('cutlistBtn');
+  const cutlistFileStatus = document.getElementById('cutlistFileStatus');
+
+  const productDropzone = document.getElementById('productDropzone');
+  const productInput = document.getElementById('productInput');
+  const productBtn = document.getElementById('productBtn');
+  const productFileStatus = document.getElementById('productFileStatus');
+
+  const btnProcessData = document.getElementById('btnProcessData');
 
   // Unified Pop-up Modal Elements
   const refinementModal = document.getElementById('refinementModal');
@@ -104,108 +113,187 @@ document.addEventListener('DOMContentLoaded', () => {
   // Standardized 6-Column Output Schema: [Truss, ID, Member, Qty, Length, Product ID]
   const STANDARD_HEADERS = ['Truss', 'ID', 'Member', 'Qty', 'Length', 'Product ID'];
 
-  // State Variables
-  let originalFileName = '';
-  let processedData = []; // Array of [Truss, ID, Member, Qty, Length, Product ID]
-  let summaryStats = { total: 0, dups: 0, renames: 0, clean: 0 };
+  // Application State
+  let cutlistFile = null;
+  let masterProductFile = null;
+  let masterProductSet = new Set(); // Stores uppercase product codes from Master Product List
+
+  let processedData = []; // New Product List records: [Truss, ID, Member, Qty, Length, Product ID]
+  let summaryStats = { total: 0, dups: 0, existingRemoved: 0, clean: 0 };
   let isTxtFile = false;
   let rawTxtLines = [];
-  let allLogEntries = []; // Array of { msg, type }
+  let allLogEntries = [];
 
   // Log Search Navigation State
   let matchingLogElements = [];
   let currentMatchIdx = -1;
 
-  // Drag & Drop Handlers
-  dropzone.addEventListener('click', () => fileInput.click());
+  // --- DUAL FILE UPLOAD EVENT LISTENERS ---
+  cutlistDropzone.addEventListener('click', () => cutlistInput.click());
+  cutlistBtn.addEventListener('click', (e) => { e.stopPropagation(); cutlistInput.click(); });
   
-  dropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropzone.classList.add('dragover');
-  });
-
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  });
-
-  fileInput.addEventListener('change', (e) => {
+  cutlistInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
-      handleFile(e.target.files[0]);
+      cutlistFile = e.target.files[0];
+      cutlistFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${cutlistFile.name}`;
+      cutlistDropzone.classList.add('loaded');
+      checkReadyState();
     }
   });
 
-  // Preset Sample Handlers
+  productDropzone.addEventListener('click', () => productInput.click());
+  productBtn.addEventListener('click', (e) => { e.stopPropagation(); productInput.click(); });
+
+  productInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      masterProductFile = e.target.files[0];
+      productFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${masterProductFile.name}`;
+      productDropzone.classList.add('loaded');
+      checkReadyState();
+    }
+  });
+
+  function checkReadyState() {
+    if (cutlistFile) {
+      btnProcessData.disabled = false;
+    }
+  }
+
+  // --- PRESET SAMPLE BUTTON HANDLERS ---
   if (sampleExcelBtn) {
-    sampleExcelBtn.addEventListener('click', () => loadSampleFile('working sheet - Copy (3).xlsx'));
+    sampleExcelBtn.addEventListener('click', () => runSamplePreset('working sheet - Copy (3).xlsx'));
   }
   if (sampleTxtBtn) {
-    sampleTxtBtn.addEventListener('click', () => loadSampleFile('T-2674-Blok Akademik 3-00 Truss Cutlist.txt'));
+    sampleTxtBtn.addEventListener('click', () => runSamplePreset('T-2674-Blok Akademik 3-00 Truss Cutlist.txt'));
   }
 
-  modalCloseBtn.addEventListener('click', closeModal);
-  errorModalCloseBtn.addEventListener('click', closeErrorModal);
-  errorModalOkBtn.addEventListener('click', closeErrorModal);
-
-  function closeModal() {
-    refinementModal.classList.remove('active');
-  }
-
-  function closeErrorModal() {
-    errorModal.classList.remove('active');
-  }
-
-  function hideAlert() {
-    errorModal.classList.remove('active');
-  }
-
-  // Show Error Pop-up Modal
-  function showAlert(msg) {
-    errorModalText.innerHTML = msg;
-    errorModal.classList.add('active');
-  }
-
-  // File Handler Routing
-  function handleFile(file) {
+  async function runSamplePreset(cutlistFileName) {
     hideAlert();
-    originalFileName = file.name;
-    const ext = file.name.split('.').pop().toLowerCase();
+    try {
+      // 1. Fetch Master Product List
+      const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+      if (!prodResp.ok) throw new Error('Fetch master product failed');
+      const prodBuf = await prodResp.arrayBuffer();
+      parseMasterProductListArrayBuffer(prodBuf);
 
-    if (!['xlsx', 'xls', 'csv', 'txt'].includes(ext)) {
-      showAlert(`<strong>Invalid File Format:</strong> .${ext} is not supported.<br>Please upload an Excel (.xlsx, .xls), CSV (.csv), or Text Cutlist (.txt) file.`);
-      return;
+      // 2. Fetch Cutlist File
+      const cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
+      if (!cutResp.ok) throw new Error('Fetch cutlist failed');
+
+      const ext = cutlistFileName.split('.').pop().toLowerCase();
+      if (ext === 'txt') {
+        isTxtFile = true;
+        const txtData = await cutResp.text();
+        processTextContent(txtData, cutlistFileName);
+      } else {
+        isTxtFile = false;
+        const arrayBuf = await cutResp.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(arrayBuf), { type: 'array' });
+        const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+        processExcelRows(jsonRows, cutlistFileName);
+      }
+    } catch (err) {
+      showAlert(`Failed to load sample files. Please select your own Cutlist and Master Product List files.`);
+    }
+  }
+
+  // --- PROCESS DATA BUTTON CLICK ---
+  btnProcessData.addEventListener('click', async () => {
+    if (!cutlistFile) return;
+
+    // Parse Master Product List file first if uploaded
+    if (masterProductFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          parseMasterProductListArrayBuffer(data);
+          startCutlistProcessing();
+        } catch (err) {
+          showAlert(`Failed to parse Master Product List file.`);
+        }
+      };
+      reader.readAsArrayBuffer(masterProductFile);
+    } else {
+      // Auto-load default sample master product list if user didn't upload a custom one
+      try {
+        const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+        if (prodResp.ok) {
+          const prodBuf = await prodResp.arrayBuffer();
+          parseMasterProductListArrayBuffer(prodBuf);
+        }
+      } catch (err) {}
+      startCutlistProcessing();
+    }
+  });
+
+  function parseMasterProductListArrayBuffer(arrayBuffer) {
+    masterProductSet.clear();
+    const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (!jsonRows || jsonRows.length === 0) return;
+
+    // Find Product column index (default column 0 or header matching 'Product')
+    let prodColIdx = 0;
+    const headerRow = jsonRows[0] || [];
+    for (let c = 0; c < headerRow.length; c++) {
+      const h = String(headerRow[c] || '').trim().toLowerCase();
+      if (h === 'product' || h === 'product id' || h === 'material') {
+        prodColIdx = c;
+        break;
+      }
     }
 
+    for (let r = 0; r < jsonRows.length; r++) {
+      const row = jsonRows[r];
+      if (row && row[prodColIdx] != null) {
+        const val = String(row[prodColIdx]).trim().toUpperCase();
+        if (val && val !== 'PRODUCT' && val !== 'PRODUCT ID') {
+          masterProductSet.add(val);
+        }
+      }
+    }
+  }
+
+  function startCutlistProcessing() {
+    const ext = cutlistFile.name.split('.').pop().toLowerCase();
     const reader = new FileReader();
 
     if (ext === 'txt') {
       isTxtFile = true;
-      reader.onload = (e) => processTextContent(e.target.result);
-      reader.readAsText(file);
+      reader.onload = (e) => processTextContent(e.target.result, cutlistFile.name);
+      reader.readAsText(cutlistFile);
     } else {
       isTxtFile = false;
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          processExcelRows(jsonRows);
+          const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+          processExcelRows(jsonRows, cutlistFile.name);
         } catch (err) {
-          showAlert(`<strong>File Parse Error:</strong> Could not parse spreadsheet structure.<br>Please ensure it is a valid raw data file.`);
+          showAlert(`Failed to parse cutlist file.`);
         }
       };
-      reader.readAsArrayBuffer(file);
+      reader.readAsArrayBuffer(cutlistFile);
     }
   }
 
-  // Strict Validation Engine
+  modalCloseBtn.addEventListener('click', closeModal);
+  errorModalCloseBtn.addEventListener('click', closeErrorModal);
+  errorModalOkBtn.addEventListener('click', closeErrorModal);
+
+  function closeModal() { refinementModal.classList.remove('active'); }
+  function closeErrorModal() { errorModal.classList.remove('active'); }
+  function hideAlert() { errorModal.classList.remove('active'); }
+
+  function showAlert(msg) {
+    errorModalText.innerHTML = msg;
+    errorModal.classList.add('active');
+  }
+
   function validateColumnsAndContent(rows) {
     if (!rows || rows.length < 2) return false;
     const sampleText = JSON.stringify(rows.slice(0, 100));
@@ -215,64 +303,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return hasValidMemberCodes && hasValidIDPatterns;
   }
 
-  // Sample File Loader
-  async function loadSampleFile(fileName) {
-    hideAlert();
-    originalFileName = fileName;
-    const ext = fileName.split('.').pop().toLowerCase();
-    
-    try {
-      const samplePath = `../TG/${fileName}`;
-      const resp = await fetch(encodeURI(samplePath));
-      if (!resp.ok) throw new Error('Fetch sample failed');
-      
-      if (ext === 'txt') {
-        isTxtFile = true;
-        const textData = await resp.text();
-        processTextContent(textData);
-      } else {
-        isTxtFile = false;
-        const arrayBuf = await resp.arrayBuffer();
-        const workbook = XLSX.read(new Uint8Array(arrayBuf), { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        processExcelRows(jsonRows);
-      }
-    } catch (err) {
-      if (ext === 'txt') {
-        const mockTxt = `Truss Material Report\nCompany Name Teck Guan Steel S/B\n\nTruss ID Member Qty Length\nGI1 B1 MB10010 1 9750\nGI1 T1 MB10010 1 5379\nGI1 T1 UB10010 1 5379\nGI1 W1 MB7510 1 150\nGI1 W10 MB7510 1 820`;
-        isTxtFile = true;
-        processTextContent(mockTxt);
-      } else {
-        const mockRows = [
-          ['Material Summary by Truss'],
-          ['Truss', 'ID', 'Truss ID', 'Member', 'Length', 'Qty'],
-          ['HN1', 'B1', 'HN1 B1', 'MB10010', '280', '8'],
-          ['HN1', 'T1', 'HN1 T1', 'MB10010', '993', '8'],
-          ['HN1', 'T1', 'HN1 T1', 'UB10010', '993', '8'],
-          ['HN1', 'W1', 'HN1 W1', 'MB7510', '180', '8']
-        ];
-        isTxtFile = false;
-        processExcelRows(mockRows);
-      }
-    }
-  }
-
   // --- LOG ENGINE & REAL-TIME SEARCH NAVIGATION ---
   function addLog(msg, type = 'info') {
     const entry = { msg, type };
     allLogEntries.push(entry);
 
     const filterTerm = terminalSearch ? terminalSearch.value.trim().toLowerCase() : '';
-    
     if (!filterTerm || msg.toLowerCase().includes(filterTerm)) {
       const el = renderLogLine(entry, filterTerm);
-      if (filterTerm) {
-        matchingLogElements.push(el);
-      }
+      if (filterTerm) matchingLogElements.push(el);
       terminalLog.scrollTop = terminalLog.scrollHeight;
     }
-
     updateMatchCounter();
   }
 
@@ -298,16 +339,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentMatchIdx = -1;
     const term = terminalSearch ? terminalSearch.value.trim().toLowerCase() : '';
 
-    if (btnSearchClear) {
-      btnSearchClear.style.display = term ? 'inline-flex' : 'none';
-    }
+    if (btnSearchClear) btnSearchClear.style.display = term ? 'inline-flex' : 'none';
 
     allLogEntries.forEach(entry => {
       if (!term || entry.msg.toLowerCase().includes(term)) {
         const lineEl = renderLogLine(entry, term);
-        if (term) {
-          matchingLogElements.push(lineEl);
-        }
+        if (term) matchingLogElements.push(lineEl);
       }
     });
 
@@ -336,14 +373,12 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('active-match');
       }
     });
-
     updateMatchCounter();
   }
 
   function updateMatchCounter() {
     if (!logMatchCounter) return;
     const totalMatches = matchingLogElements.length;
-    
     if (totalMatches === 0) {
       logMatchCounter.textContent = '0 / 0';
       if (btnSearchPrev) btnSearchPrev.disabled = true;
@@ -369,15 +404,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (terminalSearch) {
     terminalSearch.addEventListener('input', refreshLogDisplay);
-    
     terminalSearch.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (e.shiftKey) {
-          goToPrevMatch();
-        } else {
-          goToNextMatch();
-        }
+        if (e.shiftKey) goToPrevMatch();
+        else goToNextMatch();
       }
     });
   }
@@ -386,16 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnSearchNext) btnSearchNext.addEventListener('click', goToNextMatch);
   if (btnSearchPrev) btnSearchPrev.addEventListener('click', goToPrevMatch);
 
-  function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
+  function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function escapeHtml(string) { return string.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-  function escapeHtml(string) {
-    return string.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  // Initialize Processing State inside Modal
-  function startModalProcessing() {
+  function startModalProcessing(fileName) {
     refinementModal.classList.add('active');
     modalTitle.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary);"></i> Processing Dataset...`;
     modalProgressBadge.textContent = '0%';
@@ -407,28 +432,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (terminalSearch) terminalSearch.value = '';
     if (btnSearchClear) btnSearchClear.style.display = 'none';
     modalSummarySection.style.display = 'none';
-    addLog(`Initiating refinement for ${originalFileName}...`, 'info');
+    addLog(`Initiating refinement for ${fileName}...`, 'info');
+    addLog(`Master Product List contains ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
   }
 
-  // --- EXCEL PROCESSING PIPELINE (STRICT EMPTY ROW FILTER) ---
-  function processExcelRows(rawRows) {
+  // --- EXCEL PROCESSING PIPELINE (NEW PRODUCT FILTERING) ---
+  function processExcelRows(rawRows, fileName) {
     if (!validateColumnsAndContent(rawRows)) {
-      showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${originalFileName}</em>' does not match expected Product Cutlist / Truss dataset.<br><br>Required data fields: Engineering Member Codes (e.g., MB10010, UB10010) and Truss Element IDs (e.g., T1, B1, W1). Please upload a valid raw cutlist file.`);
+      showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${fileName}</em>' does not match expected Product Cutlist / Truss dataset.`);
       return;
     }
 
-    startModalProcessing();
+    startModalProcessing(fileName);
 
-    // Filter out completely empty or whitespace-only rows
-    const validRows = rawRows.filter(r => 
-      Array.isArray(r) && r.some(c => String(c || '').trim() !== '')
-    );
+    const validRows = rawRows.filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
     const totalCount = validRows.length;
     
-    const cleanOutput = [];
+    const newProductOutput = [];
     const seenProductIDs = new Set();
     let dupsCount = 0;
-    let productIDCreatedCount = 0;
+    let existingMatchRemovedCount = 0;
     let index = 0;
 
     function step() {
@@ -437,77 +460,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (; index < end; index++) {
         const row = validRows[index];
-
-        // Omit empty/whitespace rows
         const nonBlankCells = row.filter(c => String(c || '').trim() !== '');
         if (nonBlankCells.length === 0) continue;
 
-        // Standardize Fields: [Truss, ID, Member, Qty, Length]
         let truss = '', idVal = '', memberCode = '', qty = '', length = '';
 
         for (let c = 0; c < row.length; c++) {
           const val = String(row[c] || '').trim();
           if (!val) continue;
 
-          if (!truss && /^(GI|HN|J|LH|RH|ST|S)\d+$/i.test(val)) {
-            truss = val;
-          } else if (!idVal && /^(?:[A-Z]{1,3}\d{1,3}|[A-Z]\d+)$/i.test(val) && !/^(MB|UB|CPLN|UC)\d+/i.test(val)) {
-            idVal = val;
-          } else if (!memberCode && /^(MB|UB|CPLN|UC)\d+/i.test(val)) {
-            memberCode = val;
-          }
+          if (!truss && /^(GI|HN|J|LH|RH|ST|S)\d+$/i.test(val)) truss = val;
+          else if (!idVal && /^(?:[A-Z]{1,3}\d{1,3}|[A-Z]\d+)$/i.test(val) && !/^(MB|UB|CPLN|UC)\d+/i.test(val)) idVal = val;
+          else if (!memberCode && /^(MB|UB|CPLN|UC)\d+/i.test(val)) memberCode = val;
         }
 
         if (!truss && row.length > 0) truss = String(row[0] || '').trim();
         if (!idVal && row.length > 1) idVal = String(row[1] || '').trim();
         if (!memberCode && row.length > 3) memberCode = String(row[3] || '').trim();
 
-        if (!truss || !idVal || !memberCode || truss.toLowerCase().includes('material summary') || idVal.toLowerCase() === 'id' || memberCode.toLowerCase() === 'member') {
-          continue;
-        }
+        if (!truss || !idVal || !memberCode || truss.toLowerCase().includes('material summary') || idVal.toLowerCase() === 'id' || memberCode.toLowerCase() === 'member') continue;
 
         const nums = row.map(c => String(c || '').trim()).filter(c => /^\d+$/.test(c));
         if (nums.length >= 2) {
-          const n1 = parseInt(nums[0], 10);
-          const n2 = parseInt(nums[1], 10);
-          if (n1 > n2 && n1 > 50) {
-            length = String(n1); qty = String(n2);
-          } else if (n2 > n1 && n2 > 50) {
-            length = String(n2); qty = String(n1);
-          } else {
-            qty = nums[0]; length = nums[1];
-          }
-        } else if (nums.length === 1) {
-          length = nums[0]; qty = '1';
-        } else {
-          qty = '1'; length = '0';
-        }
+          const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
+          if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
+          else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
+          else { qty = nums[0]; length = nums[1]; }
+        } else if (nums.length === 1) { length = nums[0]; qty = '1'; }
+        else { qty = '1'; length = '0'; }
 
-        // --- STEP 1: Rename Member Prefix ONLY when constructing Product ID ---
+        // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
-        if (memberCode.startsWith('MB')) {
-          productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
-        } else if (memberCode.startsWith('UB')) {
-          productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
-        }
+        if (memberCode.startsWith('MB')) productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
+        else if (memberCode.startsWith('UB')) productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
 
-        // --- STEP 2: Create Product ID = Renamed Prefix Member + 'X' + Length ---
-        const productID = `${productIDPrefixMember}X${length}`;
-        productIDCreatedCount++;
+        // STEP 2: Create Product ID = Renamed Prefix + 'X' + Length
+        const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
 
-        // --- STEP 3: Find & Remove Duplicate Product ID ---
+        // STEP 3: Deduplicate Product IDs
         if (seenProductIDs.has(productID)) {
           dupsCount++;
           addLog(`[DUP REMOVED] Row ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
-          continue; // Omit duplicate Product ID
+          continue;
         }
-
         seenProductIDs.add(productID);
-        addLog(`[PRODUCT ID CREATED] Row ${index + 1}: '${productID}' (Member: '${memberCode}')`, 'convert');
 
-        // Standardized 6-Column Output: [Truss, ID, Member (Unchanged), Qty, Length, Product ID]
-        const record = [truss, idVal, memberCode, qty, length, productID];
-        cleanOutput.push(record);
+        // STEP 4: Compare Product ID against Master Product List
+        if (masterProductSet.has(productID)) {
+          existingMatchRemovedCount++;
+          addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
+        } else {
+          addLog(`[NEW PRODUCT RETAINED] Row ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
+          const record = [truss, idVal, memberCode, qty, length, productID];
+          newProductOutput.push(record);
+        }
       }
 
       const pct = Math.min(100, Math.round((index / totalCount) * 100));
@@ -519,24 +525,24 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         progressBarFill.style.width = '100%';
         modalProgressBadge.textContent = '100%';
-        modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Processing Complete!`;
-        addLog(`100% complete! Refined ${cleanOutput.length} unique Product IDs into [Truss, ID, Member, Qty, Length, Product ID].`, 'info');
-        setTimeout(() => finalizeProcessing(cleanOutput, totalCount, dupsCount, productIDCreatedCount), 300);
+        modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Refinement Complete!`;
+        addLog(`100% complete! Retained ${newProductOutput.length} NEW products in 'New Product List'.`, 'info');
+        setTimeout(() => finalizeProcessing(newProductOutput, totalCount, dupsCount, existingMatchRemovedCount), 300);
       }
     }
 
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE (STRICT EMPTY ROW FILTER) ---
-  function processTextContent(txt) {
+  // --- TEXT CUTLIST PROCESSING PIPELINE (NEW PRODUCT FILTERING) ---
+  function processTextContent(txt, fileName) {
     const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
-      showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${originalFileName}</em>' does not match expected Product Cutlist format.<br><br>Required data fields: Engineering Member Codes (e.g., MB10010, UB10010) and Truss Element IDs (e.g., T1, B1, W1).`);
+      showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${fileName}</em>' does not match expected Product Cutlist format.`);
       return;
     }
 
-    startModalProcessing();
+    startModalProcessing(fileName);
 
     const totalCount = lines.length;
     const cleanRecords = [];
@@ -544,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seenProductIDs = new Set();
     
     let dupsCount = 0;
-    let productIDCreatedCount = 0;
+    let existingMatchRemovedCount = 0;
     let index = 0;
 
     function stepTxt() {
@@ -554,45 +560,36 @@ document.addEventListener('DOMContentLoaded', () => {
       for (; index < end; index++) {
         let line = lines[index];
         const trimmed = line.trim();
-
-        // Omit completely empty lines
         if (!trimmed) continue;
 
         const tokens = trimmed.split(/\s+/);
         
         if (tokens.length >= 5 && /^(MB|UB|CPLN|UC)\d+/i.test(tokens[2])) {
-          const truss = tokens[0];
-          const idVal = tokens[1];
-          const memberCode = tokens[2]; // Unchanged original member code
-          const qty = tokens[3];
-          const length = tokens[4];
+          const truss = tokens[0], idVal = tokens[1], memberCode = tokens[2], qty = tokens[3], length = tokens[4];
 
-          // STEP 1: Prefix rename ONLY for Product ID creation
           let productIDPrefixMember = memberCode;
-          if (memberCode.startsWith('MB')) {
-            productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
-          } else if (memberCode.startsWith('UB')) {
-            productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
-          }
+          if (memberCode.startsWith('MB')) productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
+          else if (memberCode.startsWith('UB')) productIDPrefixMember = memberCode.replace(/^UB/, 'UC');
 
-          // STEP 2: Product ID = Renamed Prefix Member + 'X' + Length
-          const productID = `${productIDPrefixMember}X${length}`;
-          productIDCreatedCount++;
+          const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
 
-          // STEP 3: Deduplicate by Product ID
           if (seenProductIDs.has(productID)) {
             dupsCount++;
             addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
             continue;
           }
           seenProductIDs.add(productID);
-          addLog(`[PRODUCT ID CREATED] Line ${index + 1}: '${productID}' (Member: '${memberCode}')`, 'convert');
 
-          const record = [truss, idVal, memberCode, qty, length, productID];
-          cleanRecords.push(record);
-
-          const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
-          cleanTxtLines.push(formattedLine);
+          if (masterProductSet.has(productID)) {
+            existingMatchRemovedCount++;
+            addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
+          } else {
+            addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
+            const record = [truss, idVal, memberCode, qty, length, productID];
+            cleanRecords.push(record);
+            const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
+            cleanTxtLines.push(formattedLine);
+          }
         }
       }
 
@@ -605,45 +602,42 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         progressBarFill.style.width = '100%';
         modalProgressBadge.textContent = '100%';
-        modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Processing Complete!`;
-        addLog(`100% complete! Refined ${cleanRecords.length} unique Product IDs.`, 'info');
-        setTimeout(() => finalizeTextProcessing(cleanTxtLines, cleanRecords, totalCount, dupsCount, productIDCreatedCount), 300);
+        modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Refinement Complete!`;
+        addLog(`100% complete! Retained ${cleanRecords.length} NEW products in 'New Product List'.`, 'info');
+        setTimeout(() => finalizeTextProcessing(cleanTxtLines, cleanRecords, totalCount, dupsCount, existingMatchRemovedCount), 300);
       }
     }
 
     stepTxt();
   }
 
-  // --- FINALIZE: SHOW BOTH PROGRESS & REFINE SUMMARY SECTIONS IN MODAL ---
-  function finalizeProcessing(cleanOutput, totalInput, dupsCount, renamesCount) {
+  function finalizeProcessing(cleanOutput, totalInput, dupsCount, existingRemovedCount) {
     processedData = cleanOutput;
     summaryStats = {
       total: totalInput,
       dups: dupsCount,
-      renames: renamesCount,
+      existingRemoved: existingRemovedCount,
       clean: cleanOutput.length
     };
-
     renderSummaryMetrics();
   }
 
-  function finalizeTextProcessing(cleanLines, cleanRecords, totalInput, dupsCount, renamesCount) {
+  function finalizeTextProcessing(cleanLines, cleanRecords, totalInput, dupsCount, existingRemovedCount) {
     rawTxtLines = cleanLines;
     processedData = cleanRecords;
     summaryStats = {
       total: totalInput,
       dups: dupsCount,
-      renames: renamesCount,
+      existingRemoved: existingRemovedCount,
       clean: cleanRecords.length
     };
-
     renderSummaryMetrics();
   }
 
   function renderSummaryMetrics() {
     valTotalRows.textContent = summaryStats.total.toLocaleString();
     valDupsRemoved.textContent = summaryStats.dups.toLocaleString();
-    valRenamedCodes.textContent = summaryStats.renames.toLocaleString();
+    valRenamedCodes.textContent = summaryStats.existingRemoved.toLocaleString();
     valCleanRows.textContent = summaryStats.clean.toLocaleString();
 
     btnDownloadXlsx.style.display = 'inline-flex';
@@ -653,17 +647,15 @@ document.addEventListener('DOMContentLoaded', () => {
     modalSummarySection.style.display = 'block';
   }
 
-  // --- DOWNLOAD GENERATORS (Standardized 6 Columns: Truss, ID, Member, Qty, Length, Product ID) ---
+  // --- DOWNLOAD GENERATORS (Exported as 'New Product List') ---
   btnDownloadXlsx.addEventListener('click', () => {
     const exportData = [STANDARD_HEADERS, ...processedData];
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     ws['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 22 }];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Refined Product Data');
-    
-    const exportName = originalFileName ? `Refined_${originalFileName.replace(/\.[^/.]+$/, '')}.xlsx` : 'Refined_Product_Data.xlsx';
-    XLSX.writeFile(wb, exportName);
+    XLSX.utils.book_append_sheet(wb, ws, 'New Product List');
+    XLSX.writeFile(wb, 'New Product List.xlsx');
   });
 
   btnDownloadCsv.addEventListener('click', () => {
@@ -673,10 +665,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const exportName = originalFileName ? `Refined_${originalFileName.replace(/\.[^/.]+$/, '')}.csv` : 'Refined_Product_Data.csv';
-    
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', exportName);
+    link.setAttribute('download', 'New Product List.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -686,10 +676,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const txtContent = rawTxtLines.join('\n');
     const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
-    const exportName = originalFileName ? `Refined_${originalFileName}` : 'Refined_Truss_Cutlist.txt';
-
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', exportName);
+    link.setAttribute('download', 'New Product List.txt');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -697,7 +685,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnReset.addEventListener('click', () => {
     closeModal();
-    fileInput.value = '';
+    cutlistFile = null;
+    masterProductFile = null;
+    cutlistInput.value = '';
+    productInput.value = '';
+    cutlistFileStatus.textContent = 'Click or Drag & Drop Raw Cutlist File';
+    productFileStatus.textContent = 'Click or Drag & Drop Master Product List';
+    cutlistDropzone.classList.remove('loaded');
+    productDropzone.classList.remove('loaded');
+    btnProcessData.disabled = true;
     hideAlert();
   });
 });

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Product Data Refinement | Teck Guan Group</title>
-  <meta name="description" content="Automated dataset cleaning, duplicate Product ID removal, and member code prefix conversion for Teck Guan Group.">
+  <meta name="description" content="Automated dataset cleaning, duplicate Product ID removal, and new product identification for Teck Guan Group.">
   <link rel="stylesheet" href="styles.css">
   <!-- FontAwesome Icons & SheetJS Library -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -59,64 +59,95 @@
         <div class="info-box">
           <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
           <ul>
-            <li><strong>Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
-            <li><strong>Duplicate Product ID Removal:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries, keeping unique Product IDs only.</li>
-            <li><strong>Standardized 6-Column Output:</strong> Exports <span class="code-inline">Truss, ID, Member, Qty, Length, Product ID</span>.</li>
+            <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
+            <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
+            <li><strong>3. Compare with Master Product List:</strong> Compares Product IDs against the uploaded Master Product List. If a product already exists, it is filtered out—retaining only **New Products** in the final output file: <span class="code-inline">New Product List.xlsx</span>.</li>
           </ul>
         </div>
 
         <!-- Box 2: Format & Required Columns -->
         <div class="info-box">
-          <h3><i class="fa-solid fa-file-circle-check"></i> Allowed File Format & Headers</h3>
+          <h3><i class="fa-solid fa-file-circle-check"></i> Allowed File Formats</h3>
           <ul>
-            <li><strong>Supported Files:</strong> Excel Worksheets (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>), CSV (<span class="code-inline">.csv</span>), or Text Cutlists (<span class="code-inline">.txt</span>).</li>
-            <li><strong>Required Data Columns:</strong> Must include identifiable <span class="code-inline">ID</span> fields and <span class="code-inline">Member</span> / <span class="code-inline">Member Code</span> values.</li>
+            <li><strong>Cutlist File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>), CSV (<span class="code-inline">.csv</span>), or Text Cutlist (<span class="code-inline">.txt</span>).</li>
+            <li><strong>Master Product List File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>) or CSV (<span class="code-inline">.csv</span>) containing a <span class="code-inline">Product</span> column (e.g. <span class="code-inline">Products (53) 01.09 - 26.09.xlsx</span>).</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <!-- Upload Dropzone Section -->
+    <!-- Dual Upload Section -->
     <section class="glass-card">
-      <div class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
-        <div class="dropzone-icon">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
+      <div class="card-title">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        Upload Required Input Files
+      </div>
+
+      <div class="dual-upload-grid">
+
+        <!-- Upload 1: Cutlist File -->
+        <div class="upload-card" id="cutlistDropzone">
+          <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+          <div class="upload-badge"><i class="fa-solid fa-1"></i> Cutlist File</div>
+          <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
+          <div class="upload-title" id="cutlistFileStatus">Click or Drag & Drop Raw Cutlist File</div>
+          <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
+          <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
+            <i class="fa-solid fa-folder-open"></i> Select Cutlist File
+          </button>
         </div>
-        <div class="dropzone-text">Click or Drag & Drop Raw Data File Here</div>
-        <div class="dropzone-sub">Supports .xlsx, .xls, .csv, and .txt files</div>
-        <button type="button" class="btn-primary">
-          <i class="fa-solid fa-folder-open"></i> Select File
+
+        <!-- Upload 2: Master Product List File -->
+        <div class="upload-card" id="productDropzone">
+          <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
+          <div class="upload-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--success); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-2"></i> Master Product List</div>
+          <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div class="upload-title" id="productFileStatus">Click or Drag & Drop Master Product List</div>
+          <div class="upload-sub">Default: 'Products (53) 01.09 - 26.09.xlsx'</div>
+          <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
+            <i class="fa-solid fa-folder-open"></i> Select Product List
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Action Button to Start Process -->
+      <div style="text-align: center; margin-top: 1.5rem;">
+        <button id="btnProcessData" class="btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.05rem;" disabled>
+          <i class="fa-solid fa-gears"></i> Process & Generate New Product List
         </button>
       </div>
 
       <!-- User Instruction Note between Upload & Sample Files -->
       <div class="sample-note-banner">
         <i class="fa-solid fa-lightbulb"></i>
-        <span><strong>Note:</strong> You can upload your own raw cutlist file above, or simply click any sample file below to test the dataset refinement instantly.</span>
+        <span><strong>Note:</strong> You can upload your custom cutlist & product list files above, or click any sample file preset below to auto-load the sample files and process immediately.</span>
       </div>
 
       <!-- Quick Preset Sample Testing & Direct Downloads -->
       <div class="sample-presets">
         <label><i class="fa-solid fa-vial"></i> Quick Test & Download Sample Files:</label>
 
-        <!-- Sample 1: Excel -->
+        <!-- Sample 1: Excel Cutlist + Master Products -->
         <div class="sample-item-group">
           <button id="sampleExcelBtn" class="btn-secondary">
-            <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet - Copy (3).xlsx'
+            <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
           </button>
-          <a href="TG/working sheet - Copy (3).xlsx" download="working sheet - Copy (3).xlsx" class="btn-download-sample" title="Download 'working sheet - Copy (3).xlsx'">
-            <i class="fa-solid fa-download"></i> Download
+          <a href="TG/working sheet - Copy (3).xlsx" download="working sheet - Copy (3).xlsx" class="btn-download-sample" title="Download sample cutlist">
+            <i class="fa-solid fa-download"></i> Cutlist
+          </a>
+          <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Master Product List">
+            <i class="fa-solid fa-download"></i> Product List
           </a>
         </div>
 
-        <!-- Sample 2: Text Cutlist -->
+        <!-- Sample 2: Text Cutlist + Master Products -->
         <div class="sample-item-group">
           <button id="sampleTxtBtn" class="btn-secondary">
-            <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'T-2674-Blok Akademik 3-00 Truss Cutlist.txt'
+            <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cutlist.txt' + 'Products (53)'
           </button>
-          <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download 'T-2674-Blok Akademik 3-00 Truss Cutlist.txt'">
-            <i class="fa-solid fa-download"></i> Download
+          <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download sample text cutlist">
+            <i class="fa-solid fa-download"></i> Cutlist .txt
           </a>
         </div>
       </div>
@@ -159,7 +190,7 @@
             
             <div class="terminal-search-box">
               <i class="fa-solid fa-magnifying-glass search-icon"></i>
-              <input type="text" id="terminalSearch" placeholder="Search log text (e.g. CPLN10010X280, DUP)...">
+              <input type="text" id="terminalSearch" placeholder="Search log text (e.g. CPLN10010X280, DUP, MATCH)...">
               
               <!-- Clear Search Input Button -->
               <button id="btnSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
@@ -186,7 +217,7 @@
         <section id="modalSummarySection" class="modal-section summary-section" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--bg-card-border);">
           <div class="card-title" style="margin-bottom: 1.25rem;">
             <i class="fa-solid fa-chart-pie" style="color: var(--success);"></i>
-            Refinement Summary & Downloads
+            Refinement Summary & Download 'New Product List'
           </div>
 
           <!-- Metric Summary Cards -->
@@ -194,7 +225,7 @@
             <div class="metric-card">
               <div class="metric-icon blue"><i class="fa-solid fa-database"></i></div>
               <div class="metric-data">
-                <h4>Total Input Rows</h4>
+                <h4>Total Cutlist Rows</h4>
                 <div id="valTotalRows" class="value">0</div>
               </div>
             </div>
@@ -202,32 +233,32 @@
             <div class="metric-card">
               <div class="metric-icon red"><i class="fa-solid fa-trash-can"></i></div>
               <div class="metric-data">
-                <h4>Duplicate Product IDs Removed</h4>
+                <h4>Duplicates Removed</h4>
                 <div id="valDupsRemoved" class="value">0</div>
               </div>
             </div>
 
             <div class="metric-card">
-              <div class="metric-icon green"><i class="fa-solid fa-pen-to-square"></i></div>
+              <div class="metric-icon amber"><i class="fa-solid fa-filter-circle-xmark"></i></div>
               <div class="metric-data">
-                <h4>Product IDs Created (Renamed Prefix)</h4>
+                <h4>Existing Products Filtered Out</h4>
                 <div id="valRenamedCodes" class="value">0</div>
               </div>
             </div>
 
             <div class="metric-card">
-              <div class="metric-icon amber"><i class="fa-solid fa-square-check"></i></div>
+              <div class="metric-icon green"><i class="fa-solid fa-sparkles"></i></div>
               <div class="metric-data">
-                <h4>Unique Product IDs Retained</h4>
+                <h4>New Products Retained</h4>
                 <div id="valCleanRows" class="value">0</div>
               </div>
             </div>
           </div>
 
-          <!-- File Download Actions Bar -->
+          <!-- File Download Actions Bar (Exported as 'New Product List') -->
           <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem;">
             <button id="btnDownloadXlsx" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 0.85rem 1.8rem; font-size: 1rem;">
-              <i class="fa-solid fa-file-excel"></i> Download Excel (.xlsx)
+              <i class="fa-solid fa-file-excel"></i> Download New Product List (.xlsx)
             </button>
             <button id="btnDownloadCsv" class="btn-primary" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 0.85rem 1.8rem; font-size: 1rem;">
               <i class="fa-solid fa-file-csv"></i> Download CSV
@@ -236,7 +267,7 @@
               <i class="fa-solid fa-file-lines"></i> Download Text (.txt)
             </button>
             <button id="btnReset" class="btn-secondary" style="padding: 0.85rem 1.4rem; font-size: 0.925rem;">
-              <i class="fa-solid fa-rotate-left"></i> Refine Another File
+              <i class="fa-solid fa-rotate-left"></i> Process Another File
             </button>
           </div>
         </section>

@@ -354,41 +354,74 @@ body {
   font-weight: 600;
 }
 
-/* Upload Dropzone */
-.dropzone {
+/* Dual Upload Grid */
+.dual-upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 850px) {
+  .dual-upload-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.upload-card {
   border: 2px dashed var(--dropzone-border);
   background: var(--dropzone-bg);
   border-radius: var(--radius-lg);
-  padding: 3rem 2rem;
+  padding: 2rem 1.5rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.25s ease;
   position: relative;
+  transition: all 0.25s ease;
+
 }
 
-.dropzone:hover, .dropzone.dragover {
+.upload-card:hover, .upload-card.dragover {
   border-color: var(--primary);
   background: rgba(0, 210, 255, 0.1);
   transform: translateY(-2px);
 }
 
-.dropzone-icon {
-  font-size: 3rem;
+.upload-card.loaded {
+  border-style: solid;
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.upload-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(0, 210, 255, 0.15);
   color: var(--primary);
+  border: 1px solid var(--dropzone-border);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
   margin-bottom: 1rem;
 }
 
-.dropzone-text {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: var(--text-main);
+.upload-icon {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 0.75rem;
 }
 
-.dropzone-sub {
-  font-size: 0.875rem;
+.upload-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.upload-sub {
+  font-size: 0.825rem;
   color: var(--text-muted);
-  margin-bottom: 1.5rem;
 }
 
 .btn-primary {
@@ -407,7 +440,14 @@ body {
   transition: all 0.2s ease;
 }
 
-.btn-primary:hover {
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-primary:hover:not(:disabled) {
   opacity: 0.92;
   transform: translateY(-1px);
   box-shadow: 0 6px 20px var(--primary-glow);
@@ -748,7 +788,8 @@ body {
 }
 
 .terminal-line.dup { color: var(--danger); }
-.terminal-line.convert { color: var(--success); }
+.terminal-line.convert { color: var(--warning); }
+.terminal-line.newprod { color: var(--success); }
 .terminal-line.info { color: var(--terminal-text); }
 
 .terminal-line mark {
@@ -801,8 +842,8 @@ body {
 
 .metric-icon.blue { background: rgba(0, 210, 255, 0.15); color: var(--primary); }
 .metric-icon.red { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-.metric-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--success); }
 .metric-icon.amber { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.metric-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--success); }
 
 .metric-data h4 {
   font-size: 0.775rem;
