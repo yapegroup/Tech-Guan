@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Data Refinement | Teck Guan Group</title>
+  <meta name="description" content="Automated dataset cleaning, duplicate Product ID removal, and member code prefix conversion for Teck Guan Group.">
+  <link rel="stylesheet" href="styles.css">
+  <!-- FontAwesome Icons & SheetJS Library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body data-theme="dark">
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="brand-container">
+      <img src="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png" 
+           alt="Teck Guan Logo" class="company-logo">
+      <div class="app-title-group">
+        <h1>Teck Guan Group</h1>
+        <span>PRODUCT DATA REFINEMENT</span>
+      </div>
+    </div>
+
+    <!-- Custom Rounded Pill Theme Dropdown -->
+    <div class="custom-dropdown-container">
+      <button id="themeDropdownBtn" class="theme-trigger-btn" type="button" aria-expanded="false">
+        <span id="themeCurrentLabel">🌙 Dark Theme</span>
+        <i class="fa-solid fa-chevron-down theme-chevron"></i>
+      </button>
+      
+      <div id="themeMenu" class="custom-theme-menu">
+        <div class="custom-theme-option active" data-value="dark">
+          <span>🌙 Dark Theme</span>
+          <i class="fa-solid fa-check check-icon"></i>
+        </div>
+        <div class="custom-theme-option" data-value="light">
+          <span>☀️ Bright Theme</span>
+          <i class="fa-solid fa-check check-icon"></i>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Workspace -->
+  <main class="main-container">
+
+    <!-- Data Format & Processing Guidelines -->
+    <section class="glass-card">
+      <div class="card-title">
+        <i class="fa-solid fa-circle-info"></i>
+        Upload Requirements & Processing Specifications
+      </div>
+
+      <div class="info-grid">
+        <!-- Box 1: What processes will be done -->
+        <div class="info-box">
+          <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
+          <ul>
+            <li><strong>Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
+            <li><strong>Duplicate Product ID Removal:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries, keeping unique Product IDs only.</li>
+            <li><strong>Standardized 6-Column Output:</strong> Exports <span class="code-inline">Truss, ID, Member, Qty, Length, Product ID</span>.</li>
+          </ul>
+        </div>
+
+        <!-- Box 2: Format & Required Columns -->
+        <div class="info-box">
+          <h3><i class="fa-solid fa-file-circle-check"></i> Allowed File Format & Headers</h3>
+          <ul>
+            <li><strong>Supported Files:</strong> Excel Worksheets (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>), CSV (<span class="code-inline">.csv</span>), or Text Cutlists (<span class="code-inline">.txt</span>).</li>
+            <li><strong>Required Data Columns:</strong> Must include identifiable <span class="code-inline">ID</span> fields and <span class="code-inline">Member</span> / <span class="code-inline">Member Code</span> values.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Upload Dropzone Section -->
+    <section class="glass-card">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+        <div class="dropzone-icon">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <div class="dropzone-text">Click or Drag & Drop Raw Data File Here</div>
+        <div class="dropzone-sub">Supports .xlsx, .xls, .csv, and .txt files</div>
+        <button type="button" class="btn-primary">
+          <i class="fa-solid fa-folder-open"></i> Select File
+        </button>
+      </div>
+
+      <!-- User Instruction Note between Upload & Sample Files -->
+      <div class="sample-note-banner">
+        <i class="fa-solid fa-lightbulb"></i>
+        <span><strong>Note:</strong> You can upload your own raw cutlist file above, or simply click any sample file below to test the dataset refinement instantly.</span>
+      </div>
+
+      <!-- Quick Preset Sample Testing & Direct Downloads -->
+      <div class="sample-presets">
+        <label><i class="fa-solid fa-vial"></i> Quick Test & Download Sample Files:</label>
+
+        <!-- Sample 1: Excel -->
+        <div class="sample-item-group">
+          <button id="sampleExcelBtn" class="btn-secondary">
+            <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet - Copy (3).xlsx'
+          </button>
+          <a href="TG/working sheet - Copy (3).xlsx" download="working sheet - Copy (3).xlsx" class="btn-download-sample" title="Download 'working sheet - Copy (3).xlsx'">
+            <i class="fa-solid fa-download"></i> Download
+          </a>
+        </div>
+
+        <!-- Sample 2: Text Cutlist -->
+        <div class="sample-item-group">
+          <button id="sampleTxtBtn" class="btn-secondary">
+            <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'T-2674-Blok Akademik 3-00 Truss Cutlist.txt'
+          </button>
+          <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download 'T-2674-Blok Akademik 3-00 Truss Cutlist.txt'">
+            <i class="fa-solid fa-download"></i> Download
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- POP-UP MODAL (Handles Progress during processing, and BOTH Progress + Refinement Summary once completed) -->
+  <div id="refinementModal" class="modal-overlay">
+    <div class="modal-card">
+      
+      <!-- Modal Dynamic Header -->
+      <div class="modal-header">
+        <h2 id="modalTitle">
+          <i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary);"></i>
+          Processing Dataset...
+        </h2>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span id="modalProgressBadge" class="modal-progress-badge">0%</span>
+          <button id="modalCloseBtn" class="modal-close-btn" title="Close Modal">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+
+        <!-- PART 1: Processing Progress & Live Terminal Log with Up/Down Search Nav & Clear Button -->
+        <section id="modalProcessingSection" class="modal-section">
+          <div class="progress-bar-bg">
+            <div id="progressBarFill" class="progress-bar-fill"></div>
+          </div>
+
+          <!-- Log Title & Search Bar with Navigation & Clear Button -->
+          <div class="terminal-header-bar">
+            <div class="card-title" style="font-size: 0.925rem; margin-bottom: 0; color: var(--text-muted);">
+              <i class="fa-solid fa-terminal" style="color: var(--primary);"></i> Live Refinement Terminal Log
+            </div>
+            
+            <div class="terminal-search-box">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="terminalSearch" placeholder="Search log text (e.g. CPLN10010X280, DUP)...">
+              
+              <!-- Clear Search Input Button -->
+              <button id="btnSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+
+              <!-- Up & Down Result Navigation Buttons -->
+              <div class="search-nav-controls">
+                <span id="logMatchCounter" class="match-count-badge">0 / 0</span>
+                <button id="btnSearchPrev" class="search-nav-btn" title="Previous Result (Up / Shift+Enter)">
+                  <i class="fa-solid fa-chevron-up"></i>
+                </button>
+                <button id="btnSearchNext" class="search-nav-btn" title="Next Result (Down / Enter)">
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="terminalLog" class="terminal-window"></div>
+        </section>
+
+        <!-- PART 2: Refinement Summary & Download (Visible once completed) -->
+        <section id="modalSummarySection" class="modal-section summary-section" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--bg-card-border);">
+          <div class="card-title" style="margin-bottom: 1.25rem;">
+            <i class="fa-solid fa-chart-pie" style="color: var(--success);"></i>
+            Refinement Summary & Downloads
+          </div>
+
+          <!-- Metric Summary Cards -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon blue"><i class="fa-solid fa-database"></i></div>
+              <div class="metric-data">
+                <h4>Total Input Rows</h4>
+                <div id="valTotalRows" class="value">0</div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-icon red"><i class="fa-solid fa-trash-can"></i></div>
+              <div class="metric-data">
+                <h4>Duplicate Product IDs Removed</h4>
+                <div id="valDupsRemoved" class="value">0</div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-icon green"><i class="fa-solid fa-pen-to-square"></i></div>
+              <div class="metric-data">
+                <h4>Product IDs Created (Renamed Prefix)</h4>
+                <div id="valRenamedCodes" class="value">0</div>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-icon amber"><i class="fa-solid fa-square-check"></i></div>
+              <div class="metric-data">
+                <h4>Unique Product IDs Retained</h4>
+                <div id="valCleanRows" class="value">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- File Download Actions Bar -->
+          <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem;">
+            <button id="btnDownloadXlsx" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 0.85rem 1.8rem; font-size: 1rem;">
+              <i class="fa-solid fa-file-excel"></i> Download Excel (.xlsx)
+            </button>
+            <button id="btnDownloadCsv" class="btn-primary" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 0.85rem 1.8rem; font-size: 1rem;">
+              <i class="fa-solid fa-file-csv"></i> Download CSV
+            </button>
+            <button id="btnDownloadTxt" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); padding: 0.85rem 1.8rem; font-size: 1rem; display: none;">
+              <i class="fa-solid fa-file-lines"></i> Download Text (.txt)
+            </button>
+            <button id="btnReset" class="btn-secondary" style="padding: 0.85rem 1.4rem; font-size: 0.925rem;">
+              <i class="fa-solid fa-rotate-left"></i> Refine Another File
+            </button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR POP-UP MODAL -->
+  <div id="errorModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header" style="border-bottom-color: rgba(239, 68, 68, 0.3);">
+        <h2 style="color: #f87171;">
+          <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i>
+          Validation Failed
+        </h2>
+        <button id="errorModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 2rem 1.75rem;">
+        <div id="errorModalText" style="font-size: 0.95rem; color: #fca5a5; line-height: 1.6; margin-bottom: 1.75rem; background: rgba(239, 68, 68, 0.12); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(239, 68, 68, 0.25);"></div>
+        <button id="errorModalOkBtn" class="btn-primary" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 0.85rem 2rem; font-size: 0.95rem;">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Upload Right Data Format
+        </button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
