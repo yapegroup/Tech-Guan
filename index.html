@@ -61,7 +61,7 @@
           <ul>
             <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
             <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
-            <li><strong>3. Compare with Master Product List:</strong> Compares Product IDs against the uploaded Master Product List. If a product already exists, it is filtered out—retaining only **New Products** in the final output file: <span class="code-inline">New Product List.xlsx</span>.</li>
+            <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against the uploaded Existing Product List. If a product already exists, it is filtered out—retaining only **New Products** in the final output file: <span class="code-inline">New Product List.xlsx</span>.</li>
           </ul>
         </div>
 
@@ -70,7 +70,7 @@
           <h3><i class="fa-solid fa-file-circle-check"></i> Allowed File Formats</h3>
           <ul>
             <li><strong>Cutlist File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>), CSV (<span class="code-inline">.csv</span>), or Text Cutlist (<span class="code-inline">.txt</span>).</li>
-            <li><strong>Master Product List File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>) or CSV (<span class="code-inline">.csv</span>) containing a <span class="code-inline">Product</span> column (e.g. <span class="code-inline">Products (53) 01.09 - 26.09.xlsx</span>).</li>
+            <li><strong>Existing Product List File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>) or CSV (<span class="code-inline">.csv</span>) containing a <span class="code-inline">Product</span> column (e.g. <span class="code-inline">Products (53) 01.09 - 26.09.xlsx</span>).</li>
           </ul>
         </div>
       </div>
@@ -97,15 +97,15 @@
           </button>
         </div>
 
-        <!-- Upload 2: Master Product List File -->
+        <!-- Upload 2: Existing Product List File -->
         <div class="upload-card" id="productDropzone">
           <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
-          <div class="upload-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--success); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-2"></i> Master Product List</div>
+          <div class="upload-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--success); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-2"></i> Existing Product List</div>
           <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
-          <div class="upload-title" id="productFileStatus">Click or Drag & Drop Master Product List</div>
-          <div class="upload-sub">Default: 'Products (53) 01.09 - 26.09.xlsx'</div>
+          <div class="upload-title" id="productFileStatus">Click or Drag & Drop Existing Product List</div>
+          <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
           <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
-            <i class="fa-solid fa-folder-open"></i> Select Product List
+            <i class="fa-solid fa-folder-open"></i> Select Existing Product List
           </button>
         </div>
 
@@ -121,14 +121,14 @@
       <!-- User Instruction Note between Upload & Sample Files -->
       <div class="sample-note-banner">
         <i class="fa-solid fa-lightbulb"></i>
-        <span><strong>Note:</strong> You can upload your custom cutlist & product list files above, or click any sample file preset below to auto-load the sample files and process immediately.</span>
+        <span><strong>Note:</strong> You can upload your custom Cutlist & Existing Product List files above, or click any sample file preset below to auto-load sample files and test immediately.</span>
       </div>
 
       <!-- Quick Preset Sample Testing & Direct Downloads -->
       <div class="sample-presets">
         <label><i class="fa-solid fa-vial"></i> Quick Test & Download Sample Files:</label>
 
-        <!-- Sample 1: Excel Cutlist + Master Products -->
+        <!-- Sample 1: Excel Cutlist + Existing Products -->
         <div class="sample-item-group">
           <button id="sampleExcelBtn" class="btn-secondary">
             <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
@@ -136,12 +136,12 @@
           <a href="TG/working sheet - Copy (3).xlsx" download="working sheet - Copy (3).xlsx" class="btn-download-sample" title="Download sample cutlist">
             <i class="fa-solid fa-download"></i> Cutlist
           </a>
-          <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Master Product List">
-            <i class="fa-solid fa-download"></i> Product List
+          <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Existing Product List">
+            <i class="fa-solid fa-download"></i> Existing Product List
           </a>
         </div>
 
-        <!-- Sample 2: Text Cutlist + Master Products -->
+        <!-- Sample 2: Text Cutlist + Existing Products -->
         <div class="sample-item-group">
           <button id="sampleTxtBtn" class="btn-secondary">
             <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cutlist.txt' + 'Products (53)'

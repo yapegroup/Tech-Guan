@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Application State
   let cutlistFile = null;
   let masterProductFile = null;
-  let masterProductSet = new Set(); // Stores uppercase product codes from Master Product List
+  let masterProductSet = new Set(); // Stores uppercase product codes from Existing Product List
 
   let processedData = []; // New Product List records: [Truss, ID, Member, Qty, Length, Product ID]
   let summaryStats = { total: 0, dups: 0, existingRemoved: 0, clean: 0 };
@@ -127,23 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Log Search Navigation State
   let matchingLogElements = [];
   let currentMatchIdx = -1;
-
-  // --- AUTO-LOAD DEFAULT MASTER PRODUCT LIST ON INITIALIZATION ---
-  autoLoadDefaultMasterProductList();
-
-  async function autoLoadDefaultMasterProductList() {
-    try {
-      const resp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
-      if (resp.ok) {
-        const buf = await resp.arrayBuffer();
-        parseMasterProductListArrayBuffer(buf);
-        if (productFileStatus) {
-          productFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Products (53) 01.09 - 26.09.xlsx (${masterProductSet.size.toLocaleString()} products pre-loaded)`;
-          productDropzone.classList.add('loaded');
-        }
-      }
-    } catch (e) {}
-  }
 
   // --- DUAL FILE UPLOAD EVENT LISTENERS ---
   cutlistDropzone.addEventListener('click', () => cutlistInput.click());
@@ -198,8 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
     checkReadyState();
   }
 
+  // Strictly require BOTH cutlistFile AND masterProductFile to be selected
   function checkReadyState() {
-    if (cutlistFile) {
+    if (cutlistFile && masterProductFile) {
       btnProcessData.disabled = false;
     } else {
       btnProcessData.disabled = true;
@@ -217,14 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runSamplePreset(cutlistFileName) {
     hideAlert();
     try {
-      // 1. Ensure Master Product List is loaded
-      if (masterProductSet.size === 0) {
-        const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
-        if (prodResp.ok) {
-          const prodBuf = await prodResp.arrayBuffer();
-          parseMasterProductListArrayBuffer(prodBuf);
-        }
-      }
+      // 1. Fetch Existing Product List sample
+      const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+      if (!prodResp.ok) throw new Error('Fetch master product failed');
+      const prodBuf = await prodResp.arrayBuffer();
+      parseMasterProductListArrayBuffer(prodBuf);
 
       // 2. Fetch Cutlist File
       const cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
@@ -243,33 +224,26 @@ document.addEventListener('DOMContentLoaded', () => {
         processExcelRows(jsonRows, cutlistFileName);
       }
     } catch (err) {
-      showAlert(`Failed to load sample files. Please select your own Cutlist file.`);
+      showAlert(`Failed to load sample files. Please select your own Cutlist and Existing Product List files.`);
     }
   }
 
   // --- PROCESS DATA BUTTON CLICK ---
   btnProcessData.addEventListener('click', async () => {
-    if (!cutlistFile) return;
+    if (!cutlistFile || !masterProductFile) return;
 
-    // Parse Master Product List file if user uploaded a custom one
-    if (masterProductFile) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          parseMasterProductListArrayBuffer(data);
-          startCutlistProcessing();
-        } catch (err) {
-          showAlert(`Failed to parse Master Product List file.`);
-        }
-      };
-      reader.readAsArrayBuffer(masterProductFile);
-    } else {
-      if (masterProductSet.size === 0) {
-        await autoLoadDefaultMasterProductList();
+    // Parse user-selected Existing Product List file
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        parseMasterProductListArrayBuffer(data);
+        startCutlistProcessing();
+      } catch (err) {
+        showAlert(`Failed to parse Existing Product List file.`);
       }
-      startCutlistProcessing();
-    }
+    };
+    reader.readAsArrayBuffer(masterProductFile);
   });
 
   function parseMasterProductListArrayBuffer(arrayBuffer) {
@@ -466,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSearchClear) btnSearchClear.style.display = 'none';
     modalSummarySection.style.display = 'none';
     addLog(`Initiating refinement for ${fileName}...`, 'info');
-    addLog(`Master Product List active with ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
+    addLog(`Existing Product List contains ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
   }
 
   // --- EXCEL PROCESSING PIPELINE WITH SMART HEADER & COMBINED CELL PARSER ---
@@ -608,10 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         seenProductIDs.add(productID);
 
-        // STEP 4: Compare Product ID against Master Product List
+        // STEP 4: Compare Product ID against Existing Product List
         if (masterProductSet.has(productID)) {
           existingMatchRemovedCount++;
-          addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
+          addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
         } else {
           addLog(`[NEW PRODUCT RETAINED] Row ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
           const record = [truss, idVal, memberCode, qty, length, productID];
@@ -705,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (masterProductSet.has(productID)) {
               existingMatchRemovedCount++;
-              addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Product List. Omitted.`, 'convert');
+              addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
             } else {
               addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
               const record = [truss, idVal, memberCode, qty, length, productID];
@@ -814,8 +788,9 @@ document.addEventListener('DOMContentLoaded', () => {
     cutlistInput.value = '';
     productInput.value = '';
     cutlistFileStatus.textContent = 'Click or Drag & Drop Raw Cutlist File';
-    autoLoadDefaultMasterProductList();
+    productFileStatus.textContent = 'Click or Drag & Drop Existing Product List';
     cutlistDropzone.classList.remove('loaded');
+    productDropzone.classList.remove('loaded');
     btnProcessData.disabled = true;
     hideAlert();
   });
