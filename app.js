@@ -131,31 +131,62 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- DUAL FILE UPLOAD EVENT LISTENERS ---
   cutlistDropzone.addEventListener('click', () => cutlistInput.click());
   cutlistBtn.addEventListener('click', (e) => { e.stopPropagation(); cutlistInput.click(); });
-  
-  cutlistInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      cutlistFile = e.target.files[0];
-      cutlistFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${cutlistFile.name}`;
-      cutlistDropzone.classList.add('loaded');
-      checkReadyState();
+
+  cutlistDropzone.addEventListener('dragover', (e) => { e.preventDefault(); cutlistDropzone.classList.add('dragover'); });
+  cutlistDropzone.addEventListener('dragleave', () => cutlistDropzone.classList.remove('dragover'));
+  cutlistDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    cutlistDropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      setCutlistFile(e.dataTransfer.files[0]);
     }
   });
+
+  cutlistInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      setCutlistFile(e.target.files[0]);
+    }
+  });
+
+  function setCutlistFile(file) {
+    cutlistFile = file;
+    cutlistFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${file.name}`;
+    cutlistDropzone.classList.add('loaded');
+    checkReadyState();
+  }
 
   productDropzone.addEventListener('click', () => productInput.click());
   productBtn.addEventListener('click', (e) => { e.stopPropagation(); productInput.click(); });
 
-  productInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-      masterProductFile = e.target.files[0];
-      productFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${masterProductFile.name}`;
-      productDropzone.classList.add('loaded');
-      checkReadyState();
+  productDropzone.addEventListener('dragover', (e) => { e.preventDefault(); productDropzone.classList.add('dragover'); });
+  productDropzone.addEventListener('dragleave', () => productDropzone.classList.remove('dragover'));
+  productDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    productDropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      setMasterProductFile(e.dataTransfer.files[0]);
     }
   });
 
+  productInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      setMasterProductFile(e.target.files[0]);
+    }
+  });
+
+  function setMasterProductFile(file) {
+    masterProductFile = file;
+    productFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${file.name}`;
+    productDropzone.classList.add('loaded');
+    checkReadyState();
+  }
+
+  // Strictly require BOTH cutlistFile AND masterProductFile before enabling process button
   function checkReadyState() {
-    if (cutlistFile) {
+    if (cutlistFile && masterProductFile) {
       btnProcessData.disabled = false;
+    } else {
+      btnProcessData.disabled = true;
     }
   }
 
@@ -199,32 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- PROCESS DATA BUTTON CLICK ---
   btnProcessData.addEventListener('click', async () => {
-    if (!cutlistFile) return;
+    if (!cutlistFile || !masterProductFile) return;
 
-    // Parse Master Product List file first if uploaded
-    if (masterProductFile) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          parseMasterProductListArrayBuffer(data);
-          startCutlistProcessing();
-        } catch (err) {
-          showAlert(`Failed to parse Master Product List file.`);
-        }
-      };
-      reader.readAsArrayBuffer(masterProductFile);
-    } else {
-      // Auto-load default sample master product list if user didn't upload a custom one
+    // Parse Master Product List file
+    const reader = new FileReader();
+    reader.onload = (e) => {
       try {
-        const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
-        if (prodResp.ok) {
-          const prodBuf = await prodResp.arrayBuffer();
-          parseMasterProductListArrayBuffer(prodBuf);
-        }
-      } catch (err) {}
-      startCutlistProcessing();
-    }
+        const data = new Uint8Array(e.target.result);
+        parseMasterProductListArrayBuffer(data);
+        startCutlistProcessing();
+      } catch (err) {
+        showAlert(`Failed to parse Master Product List file.`);
+      }
+    };
+    reader.readAsArrayBuffer(masterProductFile);
   });
 
   function parseMasterProductListArrayBuffer(arrayBuffer) {
