@@ -49,7 +49,7 @@
 
     <!-- Data Format & Processing Guidelines -->
     <section class="glass-card">
-      <div class="info-grid">
+      <div class="info-grid" style="grid-template-columns: 1fr;">
         <!-- Box 1: What processes will be done -->
         <div class="info-box">
           <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
@@ -57,15 +57,6 @@
             <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
             <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
             <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against the uploaded Existing Product List. If a product already exists, it is filtered out—retaining only **New Products** in the final output file: <span class="code-inline">New Product List.xlsx</span>.</li>
-          </ul>
-        </div>
-
-        <!-- Box 2: Format & Required Columns -->
-        <div class="info-box">
-          <h3><i class="fa-solid fa-file-circle-check"></i> Allowed File Formats</h3>
-          <ul>
-            <li><strong>Cutlist File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>), CSV (<span class="code-inline">.csv</span>), or Text Cutlist (<span class="code-inline">.txt</span>).</li>
-            <li><strong>Existing Product List File:</strong> Excel (<span class="code-inline">.xlsx</span>, <span class="code-inline">.xls</span>) or CSV (<span class="code-inline">.csv</span>) containing a <span class="code-inline">Product</span> column (e.g. <span class="code-inline">Products (53) 01.09 - 26.09.xlsx</span>).</li>
           </ul>
         </div>
       </div>
