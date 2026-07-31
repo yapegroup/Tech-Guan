@@ -74,9 +74,10 @@
         <!-- Upload 1: Cutlist File -->
         <div class="upload-card" id="cutlistDropzone">
           <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
-          <div class="upload-badge" id="cutlistFileStatus"><i class="fa-solid fa-1"></i> Click or Drag & Drop Raw Cutlist File</div>
           <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
+          <div class="upload-title">Cutlist File</div>
           <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
+          <div id="cutlistFileStatus" class="file-status-text"></div>
           <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
             <i class="fa-solid fa-folder-open"></i> Select Cutlist File
           </button>
@@ -85,9 +86,10 @@
         <!-- Upload 2: Existing Product List File -->
         <div class="upload-card" id="productDropzone">
           <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
-          <div class="upload-badge" id="productFileStatus" style="background: rgba(16, 185, 129, 0.15); color: var(--success); border-color: rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-2"></i> Click or Drag & Drop Existing Product List</div>
           <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div class="upload-title">Existing Product List</div>
           <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
+          <div id="productFileStatus" class="file-status-text"></div>
           <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
             <i class="fa-solid fa-folder-open"></i> Select Existing Product List
           </button>
