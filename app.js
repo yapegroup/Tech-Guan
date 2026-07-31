@@ -48,9 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.setAttribute('data-theme', mode);
     localStorage.setItem('tg_theme_preference', mode);
 
-    // Update Label & Active States
+    // Update Label & Active States (Clean text without moon/sun icons)
     if (themeCurrentLabel) {
-      themeCurrentLabel.textContent = mode === 'light' ? '☀️ Bright Theme' : '🌙 Dark Theme';
+      themeCurrentLabel.textContent = mode === 'light' ? 'Bright Theme' : 'Dark Theme';
     }
 
     themeOptions.forEach(opt => {
