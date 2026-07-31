@@ -128,6 +128,23 @@ document.addEventListener('DOMContentLoaded', () => {
   let matchingLogElements = [];
   let currentMatchIdx = -1;
 
+  // --- AUTO-LOAD DEFAULT MASTER PRODUCT LIST ON INITIALIZATION ---
+  autoLoadDefaultMasterProductList();
+
+  async function autoLoadDefaultMasterProductList() {
+    try {
+      const resp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+      if (resp.ok) {
+        const buf = await resp.arrayBuffer();
+        parseMasterProductListArrayBuffer(buf);
+        if (productFileStatus) {
+          productFileStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Products (53) 01.09 - 26.09.xlsx (${masterProductSet.size.toLocaleString()} products pre-loaded)`;
+          productDropzone.classList.add('loaded');
+        }
+      }
+    } catch (e) {}
+  }
+
   // --- DUAL FILE UPLOAD EVENT LISTENERS ---
   cutlistDropzone.addEventListener('click', () => cutlistInput.click());
   cutlistBtn.addEventListener('click', (e) => { e.stopPropagation(); cutlistInput.click(); });
@@ -181,9 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
     checkReadyState();
   }
 
-  // Strictly require BOTH cutlistFile AND masterProductFile before enabling process button
   function checkReadyState() {
-    if (cutlistFile && masterProductFile) {
+    if (cutlistFile) {
       btnProcessData.disabled = false;
     } else {
       btnProcessData.disabled = true;
@@ -201,11 +217,14 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runSamplePreset(cutlistFileName) {
     hideAlert();
     try {
-      // 1. Fetch Master Product List
-      const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
-      if (!prodResp.ok) throw new Error('Fetch master product failed');
-      const prodBuf = await prodResp.arrayBuffer();
-      parseMasterProductListArrayBuffer(prodBuf);
+      // 1. Ensure Master Product List is loaded
+      if (masterProductSet.size === 0) {
+        const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+        if (prodResp.ok) {
+          const prodBuf = await prodResp.arrayBuffer();
+          parseMasterProductListArrayBuffer(prodBuf);
+        }
+      }
 
       // 2. Fetch Cutlist File
       const cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
@@ -224,26 +243,33 @@ document.addEventListener('DOMContentLoaded', () => {
         processExcelRows(jsonRows, cutlistFileName);
       }
     } catch (err) {
-      showAlert(`Failed to load sample files. Please select your own Cutlist and Master Product List files.`);
+      showAlert(`Failed to load sample files. Please select your own Cutlist file.`);
     }
   }
 
   // --- PROCESS DATA BUTTON CLICK ---
   btnProcessData.addEventListener('click', async () => {
-    if (!cutlistFile || !masterProductFile) return;
+    if (!cutlistFile) return;
 
-    // Parse Master Product List file
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        parseMasterProductListArrayBuffer(data);
-        startCutlistProcessing();
-      } catch (err) {
-        showAlert(`Failed to parse Master Product List file.`);
+    // Parse Master Product List file if user uploaded a custom one
+    if (masterProductFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          parseMasterProductListArrayBuffer(data);
+          startCutlistProcessing();
+        } catch (err) {
+          showAlert(`Failed to parse Master Product List file.`);
+        }
+      };
+      reader.readAsArrayBuffer(masterProductFile);
+    } else {
+      if (masterProductSet.size === 0) {
+        await autoLoadDefaultMasterProductList();
       }
-    };
-    reader.readAsArrayBuffer(masterProductFile);
+      startCutlistProcessing();
+    }
   });
 
   function parseMasterProductListArrayBuffer(arrayBuffer) {
@@ -254,23 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!jsonRows || jsonRows.length === 0) return;
 
-    // Find Product column index (search top 10 rows for 'Product' header)
-    let prodColIdx = 0;
-    for (let r = 0; r < Math.min(10, jsonRows.length); r++) {
-      const row = jsonRows[r] || [];
-      for (let c = 0; c < row.length; c++) {
-        const val = String(row[c] || '').trim().toLowerCase();
-        if (val === 'product' || val === 'product id' || val === 'material') {
-          prodColIdx = c;
-          break;
-        }
-      }
-    }
-
     for (let r = 0; r < jsonRows.length; r++) {
       const row = jsonRows[r];
-      if (row && row[prodColIdx] != null) {
-        const val = String(row[prodColIdx]).trim().toUpperCase();
+      if (!row) continue;
+
+      for (let c = 0; c < row.length; c++) {
+        let val = String(row[c] || '').replace(/[\u00A0\s]+/g, ' ').trim().toUpperCase();
         if (val && val !== 'PRODUCT' && val !== 'PRODUCT ID' && !val.includes('SUMMARY')) {
           masterProductSet.add(val);
         }
@@ -451,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSearchClear) btnSearchClear.style.display = 'none';
     modalSummarySection.style.display = 'none';
     addLog(`Initiating refinement for ${fileName}...`, 'info');
-    addLog(`Master Product List contains ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
+    addLog(`Master Product List active with ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
   }
 
   // --- EXCEL PROCESSING PIPELINE WITH SMART HEADER & COMBINED CELL PARSER ---
@@ -799,9 +814,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cutlistInput.value = '';
     productInput.value = '';
     cutlistFileStatus.textContent = 'Click or Drag & Drop Raw Cutlist File';
-    productFileStatus.textContent = 'Click or Drag & Drop Master Product List';
+    autoLoadDefaultMasterProductList();
     cutlistDropzone.classList.remove('loaded');
-    productDropzone.classList.remove('loaded');
     btnProcessData.disabled = true;
     hideAlert();
   });
