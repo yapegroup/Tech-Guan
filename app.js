@@ -787,8 +787,8 @@ document.addEventListener('DOMContentLoaded', () => {
     masterProductFile = null;
     cutlistInput.value = '';
     productInput.value = '';
-    cutlistFileStatus.textContent = 'Click or Drag & Drop Raw Cutlist File';
-    productFileStatus.textContent = 'Click or Drag & Drop Existing Product List';
+    cutlistFileStatus.innerHTML = '<i class="fa-solid fa-1"></i> Click or Drag & Drop Raw Cutlist File';
+    productFileStatus.innerHTML = '<i class="fa-solid fa-2"></i> Click or Drag & Drop Existing Product List';
     cutlistDropzone.classList.remove('loaded');
     productDropzone.classList.remove('loaded');
     btnProcessData.disabled = true;
