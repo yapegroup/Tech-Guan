@@ -410,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addLog(`Initiating refinement for ${originalFileName}...`, 'info');
   }
 
-  // --- EXCEL PROCESSING PIPELINE ---
+  // --- EXCEL PROCESSING PIPELINE (STRICT EMPTY ROW FILTER) ---
   function processExcelRows(rawRows) {
     if (!validateColumnsAndContent(rawRows)) {
       showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${originalFileName}</em>' does not match expected Product Cutlist / Truss dataset.<br><br>Required data fields: Engineering Member Codes (e.g., MB10010, UB10010) and Truss Element IDs (e.g., T1, B1, W1). Please upload a valid raw cutlist file.`);
@@ -419,7 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startModalProcessing();
 
-    const validRows = rawRows.filter(r => Array.isArray(r) && r.some(c => c !== '' && c != null));
+    // Filter out completely empty or whitespace-only rows
+    const validRows = rawRows.filter(r => 
+      Array.isArray(r) && r.some(c => String(c || '').trim() !== '')
+    );
     const totalCount = validRows.length;
     
     const cleanOutput = [];
@@ -434,6 +437,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (; index < end; index++) {
         const row = validRows[index];
+
+        // Omit empty/whitespace rows
+        const nonBlankCells = row.filter(c => String(c || '').trim() !== '');
+        if (nonBlankCells.length === 0) continue;
 
         // Standardize Fields: [Truss, ID, Member, Qty, Length]
         let truss = '', idVal = '', memberCode = '', qty = '', length = '';
@@ -455,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!idVal && row.length > 1) idVal = String(row[1] || '').trim();
         if (!memberCode && row.length > 3) memberCode = String(row[3] || '').trim();
 
-        if (truss.toLowerCase().includes('material summary') || idVal.toLowerCase() === 'id' || memberCode.toLowerCase() === 'member') {
+        if (!truss || !idVal || !memberCode || truss.toLowerCase().includes('material summary') || idVal.toLowerCase() === 'id' || memberCode.toLowerCase() === 'member') {
           continue;
         }
 
@@ -477,7 +484,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- STEP 1: Rename Member Prefix ONLY when constructing Product ID ---
-        // Note: The 'Member' column retains the ORIGINAL raw member code (e.g. MB10010, UB10010)
         let productIDPrefixMember = memberCode;
         if (memberCode.startsWith('MB')) {
           productIDPrefixMember = memberCode.replace(/^MB/, 'CPLN');
@@ -522,9 +528,9 @@ document.addEventListener('DOMContentLoaded', () => {
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE ---
+  // --- TEXT CUTLIST PROCESSING PIPELINE (STRICT EMPTY ROW FILTER) ---
   function processTextContent(txt) {
-    const lines = txt.split(/\r?\n/);
+    const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
       showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${originalFileName}</em>' does not match expected Product Cutlist format.<br><br>Required data fields: Engineering Member Codes (e.g., MB10010, UB10010) and Truss Element IDs (e.g., T1, B1, W1).`);
       return;
@@ -549,10 +555,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let line = lines[index];
         const trimmed = line.trim();
 
-        if (!trimmed) {
-          cleanTxtLines.push(line);
-          continue;
-        }
+        // Omit completely empty lines
+        if (!trimmed) continue;
 
         const tokens = trimmed.split(/\s+/);
         
@@ -589,8 +593,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
           cleanTxtLines.push(formattedLine);
-        } else {
-          cleanTxtLines.push(line);
         }
       }
 
