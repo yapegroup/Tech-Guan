@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- PRESET SAMPLE BUTTON HANDLERS ---
   if (sampleExcelBtn) {
-    sampleExcelBtn.addEventListener('click', () => runSamplePreset('working sheet - Copy (3).xlsx'));
+    sampleExcelBtn.addEventListener('click', () => runSamplePreset('working sheet.xlsx'));
   }
   if (sampleTxtBtn) {
     sampleTxtBtn.addEventListener('click', () => runSamplePreset('T-2674-Blok Akademik 3-00 Truss Cutlist.txt'));
@@ -141,13 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
     hideAlert();
     try {
       // 1. Fetch Existing Product List sample
-      const prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+      let prodResp = await fetch(encodeURI('TG/Products (53) 01.09 - 26.09.xlsx'));
+      if (!prodResp.ok) prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
       if (!prodResp.ok) throw new Error('Fetch master product failed');
       const prodBuf = await prodResp.arrayBuffer();
       parseMasterProductListArrayBuffer(prodBuf);
 
       // 2. Fetch Cutlist File
-      const cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
+      let cutResp = await fetch(encodeURI(`TG/${cutlistFileName}`));
+      if (!cutResp.ok) cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
       if (!cutResp.ok) throw new Error('Fetch cutlist failed');
 
       const ext = cutlistFileName.split('.').pop().toLowerCase();
