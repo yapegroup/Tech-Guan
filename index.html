@@ -9,11 +9,11 @@
   <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="shortcut icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="apple-touch-icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
-  <link rel="stylesheet" href="styles.css?v=1.0.5">
+  <link rel="stylesheet" href="styles.css?v=1.0.6">
   <!-- FontAwesome Icons & SheetJS Library -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js?v=1.0.5" defer></script>
+  <script src="app.js?v=1.0.6" defer></script>
 </head>
 <body data-theme="light">
 
@@ -61,6 +61,13 @@
           <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
           <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
           <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
+
+          <!-- Format Preview Helper Badge -->
+          <div class="format-preview-pill">
+            <i class="fa-solid fa-table-columns"></i>
+            <span>Expected Columns: <strong>Truss</strong> | <strong>ID</strong> | <strong>Member</strong> | <strong>Qty</strong> | <strong>Length</strong></span>
+          </div>
+
           <div id="cutlistFileStatus" class="file-status-text"></div>
           <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
             <i class="fa-solid fa-folder-open"></i> Select Cutlist File
@@ -72,6 +79,13 @@
           <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
           <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
           <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
+
+          <!-- Format Preview Helper Badge -->
+          <div class="format-preview-pill success">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Expected Format: <strong>Product</strong> column (e.g. <span class="code-inline">CPLN10010X9750</span>)</span>
+          </div>
+
           <div id="productFileStatus" class="file-status-text"></div>
           <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
             <i class="fa-solid fa-folder-open"></i> Select Existing Product List

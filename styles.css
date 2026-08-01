@@ -262,6 +262,34 @@ body {
   color: var(--text-muted);
 }
 
+.format-preview-pill {
+  margin-top: 0.65rem;
+  margin-bottom: 0.5rem;
+  background: rgba(2, 132, 199, 0.08);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.format-preview-pill.success {
+  background: rgba(5, 150, 105, 0.08);
+  border-color: rgba(5, 150, 105, 0.2);
+}
+
+.format-preview-pill i {
+  color: var(--primary);
+  font-size: 0.85rem;
+}
+
+.format-preview-pill.success i {
+  color: var(--success);
+}
+
 .btn-primary {
   background: var(--accent-gradient);
   color: #ffffff;
