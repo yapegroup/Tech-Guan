@@ -499,8 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (length === '0') continue;
 
-        if (!truss || truss.toUpperCase() === memberCode.toUpperCase()) truss = 'N/A';
-        if (!idVal || idVal.toUpperCase() === memberCode.toUpperCase()) idVal = 'N/A';
+        if (!truss) truss = (row[0] !== undefined && row[0] !== null ? String(row[0]).trim() : 'N/A');
+        if (!idVal) idVal = (row[1] !== undefined && row[1] !== null ? String(row[1]).trim() : 'N/A');
 
         // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
@@ -586,9 +586,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let truss = 'N/A';
             let idVal = 'N/A';
 
-            if (memberTokenIdx === 2) {
-              truss = tokens[0];
-              idVal = tokens[1];
+            if (tokens.length >= 5) {
+              truss = tokens[0] || 'N/A';
+              idVal = tokens[1] || 'N/A';
+            } else if (memberTokenIdx === 2) {
+              truss = tokens[0] || 'N/A';
+              idVal = tokens[1] || 'N/A';
             } else if (memberTokenIdx === 1) {
               const parts = tokens[0].split(/\s+/);
               if (parts.length >= 2) {
@@ -599,17 +602,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 idVal = 'N/A';
               }
             } else if (memberTokenIdx > 2) {
-              truss = tokens[0];
-              idVal = tokens[1];
+              truss = tokens[0] || 'N/A';
+              idVal = tokens[1] || 'N/A';
+            } else {
+              truss = tokens[0] || 'N/A';
+              idVal = tokens[1] || 'N/A';
             }
 
-            if (truss.toUpperCase() === memberCode.toUpperCase()) {
-              truss = 'N/A';
-            }
-            if (idVal.toUpperCase() === memberCode.toUpperCase()) {
-              idVal = 'N/A';
-            }
-            
             const nums = tokens.filter(t => /^\d+$/.test(t));
             let length = '0', qty = '1';
             if (nums.length >= 2) {
