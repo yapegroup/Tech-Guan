@@ -860,6 +860,38 @@ document.addEventListener('DOMContentLoaded', () => {
     valRenamedCodes.textContent = collectionExisting.length.toLocaleString();
     valCleanRows.textContent = collectionRetained.length.toLocaleString();
 
+    const noNewProductsNotice = document.getElementById('noNewProductsNotice');
+
+    if (collectionRetained.length === 0) {
+      btnDownloadXlsx.disabled = true;
+      btnDownloadCsv.disabled = true;
+      btnDownloadTxt.disabled = true;
+
+      btnDownloadXlsx.style.opacity = '0.45';
+      btnDownloadCsv.style.opacity = '0.45';
+      btnDownloadTxt.style.opacity = '0.45';
+
+      btnDownloadXlsx.style.cursor = 'not-allowed';
+      btnDownloadCsv.style.cursor = 'not-allowed';
+      btnDownloadTxt.style.cursor = 'not-allowed';
+
+      if (noNewProductsNotice) noNewProductsNotice.style.display = 'flex';
+    } else {
+      btnDownloadXlsx.disabled = false;
+      btnDownloadCsv.disabled = false;
+      btnDownloadTxt.disabled = false;
+
+      btnDownloadXlsx.style.opacity = '1';
+      btnDownloadCsv.style.opacity = '1';
+      btnDownloadTxt.style.opacity = '1';
+
+      btnDownloadXlsx.style.cursor = 'pointer';
+      btnDownloadCsv.style.cursor = 'pointer';
+      btnDownloadTxt.style.cursor = 'pointer';
+
+      if (noNewProductsNotice) noNewProductsNotice.style.display = 'none';
+    }
+
     btnDownloadXlsx.style.display = 'inline-flex';
     btnDownloadCsv.style.display = 'inline-flex';
     btnDownloadTxt.style.display = 'inline-flex';
@@ -968,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- DOWNLOAD GENERATORS (Exported as 'New Product List') ---
   btnDownloadXlsx.addEventListener('click', () => {
+    if (processedData.length === 0 || btnDownloadXlsx.disabled) return;
     const exportData = [STANDARD_HEADERS, ...processedData];
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     ws['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 22 }];
@@ -978,6 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnDownloadCsv.addEventListener('click', () => {
+    if (processedData.length === 0 || btnDownloadCsv.disabled) return;
     const exportData = [STANDARD_HEADERS, ...processedData];
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     const csvContent = XLSX.utils.sheet_to_csv(ws);
@@ -993,6 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Dynamic 100% Inline Column Alignment for Text (.txt) Exports
   btnDownloadTxt.addEventListener('click', () => {
+    if (processedData.length === 0 || btnDownloadTxt.disabled) return;
     const exportData = [STANDARD_HEADERS, ...processedData];
     
     // Calculate max width for each column dynamically across headers + data
