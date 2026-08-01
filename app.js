@@ -36,6 +36,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const valRenamedCodes = document.getElementById('valRenamedCodes');
   const valCleanRows = document.getElementById('valCleanRows');
 
+  // Clickable Metric Summary Cards
+  const cardTotalRows = document.getElementById('cardTotalRows');
+  const cardDupsRemoved = document.getElementById('cardDupsRemoved');
+  const cardExistingRemoved = document.getElementById('cardExistingRemoved');
+  const cardCleanRows = document.getElementById('cardCleanRows');
+
+  // Detail Table Pop-up Modal Elements
+  const metricDetailModal = document.getElementById('metricDetailModal');
+  const detailModalTitle = document.getElementById('detailModalTitle');
+  const detailModalCloseBtn = document.getElementById('detailModalCloseBtn');
+  const detailTableSearch = document.getElementById('detailTableSearch');
+  const btnDetailSearchClear = document.getElementById('btnDetailSearchClear');
+  const detailRecordCount = document.getElementById('detailRecordCount');
+  const detailTableBody = document.getElementById('detailTableBody');
+
   // Error Pop-up Modal Elements
   const errorModal = document.getElementById('errorModal');
   const errorModalText = document.getElementById('errorModalText');
@@ -62,6 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let summaryStats = { total: 0, dups: 0, existingRemoved: 0, clean: 0 };
   let isTxtFile = false;
   let allLogEntries = [];
+
+  // 4 Full Collections for Clickable Metric Detail Table Modals
+  let collectionTotal = [];
+  let collectionDups = [];
+  let collectionExisting = [];
+  let collectionRetained = [];
+
+  // Active Collection for Detail Modal Filtering
+  let activeDetailCollection = [];
+  let activeDetailTitle = '';
+  let activeDetailBadgeClass = 'total';
 
   // Log Search Navigation State
   let matchingLogElements = [];
@@ -240,10 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   modalCloseBtn.addEventListener('click', closeModal);
+  detailModalCloseBtn.addEventListener('click', closeDetailModal);
   errorModalCloseBtn.addEventListener('click', closeErrorModal);
   errorModalOkBtn.addEventListener('click', closeErrorModal);
 
   function closeModal() { refinementModal.classList.remove('active'); }
+  function closeDetailModal() { metricDetailModal.classList.remove('active'); }
   function closeErrorModal() { errorModal.classList.remove('active'); }
   function hideAlert() { errorModal.classList.remove('active'); }
 
@@ -384,6 +412,13 @@ document.addEventListener('DOMContentLoaded', () => {
     allLogEntries = [];
     matchingLogElements = [];
     currentMatchIdx = -1;
+
+    // Reset 4 Collections
+    collectionTotal = [];
+    collectionDups = [];
+    collectionExisting = [];
+    collectionRetained = [];
+
     if (terminalSearch) terminalSearch.value = '';
     if (btnSearchClear) btnSearchClear.style.display = 'none';
     modalSummarySection.style.display = 'none';
@@ -576,9 +611,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
         const unspacedProductID = productID.replace(/\s+/g, '');
 
+        const itemRecord = {
+          rowNum: index + 1,
+          truss,
+          idVal,
+          memberCode,
+          qty,
+          length,
+          productID,
+          status: 'Parsed'
+        };
+
+        // Add to Total Cutlist Rows Collection
+        collectionTotal.push(itemRecord);
+
         // STEP 3: Deduplicate Product IDs
         if (seenProductIDs.has(unspacedProductID)) {
           dupsCount++;
+          const dupRecord = { ...itemRecord, status: 'Duplicate Removed' };
+          collectionDups.push(dupRecord);
           addLog(`[DUP REMOVED] Row ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
           continue;
         }
@@ -587,8 +638,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // STEP 4: Compare Product ID against Existing Product List (checking unspaced format)
         if (masterProductSet.has(unspacedProductID)) {
           existingMatchRemovedCount++;
+          const existRecord = { ...itemRecord, status: 'Existing Product Filtered' };
+          collectionExisting.push(existRecord);
           addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
         } else {
+          const retainedRecord = { ...itemRecord, status: 'New Product Retained' };
+          collectionRetained.push(retainedRecord);
           addLog(`[NEW PRODUCT RETAINED] Row ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
           const record = [truss, idVal, memberCode, qty, length, productID];
           newProductOutput.push(record);
@@ -733,8 +788,23 @@ document.addEventListener('DOMContentLoaded', () => {
           const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
           const unspacedProductID = productID.replace(/\s+/g, '');
 
+          const itemRecord = {
+            rowNum: index + 1,
+            truss,
+            idVal,
+            memberCode,
+            qty,
+            length,
+            productID,
+            status: 'Parsed'
+          };
+
+          collectionTotal.push(itemRecord);
+
           if (seenProductIDs.has(unspacedProductID)) {
             dupsCount++;
+            const dupRecord = { ...itemRecord, status: 'Duplicate Removed' };
+            collectionDups.push(dupRecord);
             addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
             continue;
           }
@@ -742,8 +812,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (masterProductSet.has(unspacedProductID)) {
             existingMatchRemovedCount++;
+            const existRecord = { ...itemRecord, status: 'Existing Product Filtered' };
+            collectionExisting.push(existRecord);
             addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
           } else {
+            const retainedRecord = { ...itemRecord, status: 'New Product Retained' };
+            collectionRetained.push(retainedRecord);
             addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
             const record = [truss, idVal, memberCode, qty, length, productID];
             cleanRecords.push(record);
@@ -781,16 +855,115 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSummaryMetrics() {
-    valTotalRows.textContent = summaryStats.total.toLocaleString();
-    valDupsRemoved.textContent = summaryStats.dups.toLocaleString();
-    valRenamedCodes.textContent = summaryStats.existingRemoved.toLocaleString();
-    valCleanRows.textContent = summaryStats.clean.toLocaleString();
+    valTotalRows.textContent = collectionTotal.length.toLocaleString();
+    valDupsRemoved.textContent = collectionDups.length.toLocaleString();
+    valRenamedCodes.textContent = collectionExisting.length.toLocaleString();
+    valCleanRows.textContent = collectionRetained.length.toLocaleString();
 
     btnDownloadXlsx.style.display = 'inline-flex';
     btnDownloadCsv.style.display = 'inline-flex';
     btnDownloadTxt.style.display = 'inline-flex';
 
     modalSummarySection.style.display = 'block';
+  }
+
+  // --- CLICKABLE METRIC CARDS & DETAIL TABLE MODAL HANDLERS ---
+  if (cardTotalRows) {
+    cardTotalRows.addEventListener('click', () => {
+      openDetailModal(collectionTotal, 'Total Cutlist Rows (Parsed)', 'total');
+    });
+  }
+
+  if (cardDupsRemoved) {
+    cardDupsRemoved.addEventListener('click', () => {
+      openDetailModal(collectionDups, 'Duplicates Removed', 'dup');
+    });
+  }
+
+  if (cardExistingRemoved) {
+    cardExistingRemoved.addEventListener('click', () => {
+      openDetailModal(collectionExisting, 'Existing Products Filtered Out', 'existing');
+    });
+  }
+
+  if (cardCleanRows) {
+    cardCleanRows.addEventListener('click', () => {
+      openDetailModal(collectionRetained, 'New Products Retained', 'retained');
+    });
+  }
+
+  function openDetailModal(records, categoryTitle, badgeClass) {
+    activeDetailCollection = records;
+    activeDetailTitle = categoryTitle;
+    activeDetailBadgeClass = badgeClass;
+
+    detailModalTitle.innerHTML = `<i class="fa-solid fa-table" style="color: var(--primary);"></i> ${categoryTitle}`;
+    if (detailTableSearch) detailTableSearch.value = '';
+    if (btnDetailSearchClear) btnDetailSearchClear.style.display = 'none';
+
+    renderDetailTable();
+    metricDetailModal.classList.add('active');
+  }
+
+  function renderDetailTable() {
+    const filterTerm = detailTableSearch ? detailTableSearch.value.trim().toLowerCase() : '';
+    if (btnDetailSearchClear) btnDetailSearchClear.style.display = filterTerm ? 'inline-flex' : 'none';
+
+    const filtered = activeDetailCollection.filter(item => {
+      if (!filterTerm) return true;
+      const haystack = `${item.rowNum} ${item.truss} ${item.idVal} ${item.memberCode} ${item.qty} ${item.length} ${item.productID} ${item.status}`.toLowerCase();
+      return haystack.includes(filterTerm);
+    });
+
+    detailRecordCount.textContent = `Showing ${filtered.length.toLocaleString()} of ${activeDetailCollection.length.toLocaleString()} records`;
+
+    detailTableBody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      detailTableBody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
+            No matching records found.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    // Limit initial DOM renders for extreme performance if large set
+    const displayLimit = Math.min(filtered.length, 1000);
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < displayLimit; i++) {
+      const item = filtered[i];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-family: var(--font-mono); color: var(--text-dim);">${item.rowNum}</td>
+        <td><strong>${escapeHtml(item.truss)}</strong></td>
+        <td>${escapeHtml(item.idVal)}</td>
+        <td><span class="code-inline">${escapeHtml(item.memberCode)}</span></td>
+        <td>${escapeHtml(item.qty)}</td>
+        <td>${escapeHtml(item.length)}</td>
+        <td><strong style="color: var(--primary); font-family: var(--font-mono);">${escapeHtml(item.productID)}</strong></td>
+        <td><span class="badge-status ${activeDetailBadgeClass}">${escapeHtml(item.status)}</span></td>
+      `;
+      fragment.appendChild(tr);
+    }
+
+    detailTableBody.appendChild(fragment);
+  }
+
+  if (detailTableSearch) {
+    detailTableSearch.addEventListener('input', renderDetailTable);
+  }
+
+  if (btnDetailSearchClear) {
+    btnDetailSearchClear.addEventListener('click', () => {
+      if (detailTableSearch) detailTableSearch.value = '';
+      renderDetailTable();
+      detailTableSearch.focus();
+    });
   }
 
   // --- DOWNLOAD GENERATORS (Exported as 'New Product List') ---
@@ -843,6 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnReset.addEventListener('click', () => {
     closeModal();
+    closeDetailModal();
     cutlistFile = null;
     masterProductFile = null;
     cutlistInput.value = '';

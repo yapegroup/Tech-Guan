@@ -9,11 +9,11 @@
   <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="shortcut icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="apple-touch-icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
-  <link rel="stylesheet" href="styles.css?v=1.0.7">
+  <link rel="stylesheet" href="styles.css?v=1.0.8">
   <!-- FontAwesome Icons & SheetJS Library -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js?v=1.0.7" defer></script>
+  <script src="app.js?v=1.0.8" defer></script>
 </head>
 <body data-theme="light">
 
@@ -201,9 +201,9 @@
             Refinement Summary & Download 'New Product List'
           </div>
 
-          <!-- Metric Summary Cards -->
+          <!-- Clickable Metric Summary Cards -->
           <div class="metrics-grid">
-            <div class="metric-card">
+            <div class="metric-card" id="cardTotalRows" title="Click to view total cutlist rows detail table">
               <div class="metric-icon blue"><i class="fa-solid fa-database"></i></div>
               <div class="metric-data">
                 <h4>Total Cutlist Rows</h4>
@@ -211,7 +211,7 @@
               </div>
             </div>
 
-            <div class="metric-card">
+            <div class="metric-card" id="cardDupsRemoved" title="Click to view duplicate records detail table">
               <div class="metric-icon red"><i class="fa-solid fa-trash-can"></i></div>
               <div class="metric-data">
                 <h4>Duplicates Removed</h4>
@@ -219,7 +219,7 @@
               </div>
             </div>
 
-            <div class="metric-card">
+            <div class="metric-card" id="cardExistingRemoved" title="Click to view existing products filtered out detail table">
               <div class="metric-icon amber"><i class="fa-solid fa-filter-circle-xmark"></i></div>
               <div class="metric-data">
                 <h4>Existing Products Filtered Out</h4>
@@ -227,7 +227,7 @@
               </div>
             </div>
 
-            <div class="metric-card">
+            <div class="metric-card" id="cardCleanRows" title="Click to view new products retained detail table">
               <div class="metric-icon green"><i class="fa-solid fa-file-circle-plus"></i></div>
               <div class="metric-data">
                 <h4>New Products Retained</h4>
@@ -252,6 +252,61 @@
             </button>
           </div>
         </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- METRIC DETAIL TABLE POP-UP MODAL -->
+  <div id="metricDetailModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-card" style="max-width: 1040px; height: 85vh;">
+      
+      <!-- Header -->
+      <div class="modal-header">
+        <h2 id="detailModalTitle">
+          <i class="fa-solid fa-table" style="color: var(--primary);"></i>
+          Record Details
+        </h2>
+        <button id="detailModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body" style="display: flex; flex-direction: column; padding: 1.25rem; gap: 1rem; overflow: hidden;">
+
+        <!-- Search & Controls Bar -->
+        <div class="detail-search-bar">
+          <div class="terminal-search-box" style="flex: 1;">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="detailTableSearch" placeholder="Search records by Truss, ID, Member, Length, or Product ID...">
+            <button id="btnDetailSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <span id="detailRecordCount" class="match-count-badge" style="font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); font-family: var(--font-sans);">Showing 0 records</span>
+        </div>
+
+        <!-- Table Scrollable Area -->
+        <div class="detail-table-wrapper">
+          <table class="detail-table" id="detailTable">
+            <thead>
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th>Truss</th>
+                <th>ID</th>
+                <th>Member</th>
+                <th>Qty</th>
+                <th>Length</th>
+                <th>Product ID</th>
+                <th>Status / Note</th>
+              </tr>
+            </thead>
+            <tbody id="detailTableBody">
+              <!-- Dynamic Rows rendered here -->
+            </tbody>
+          </table>
+        </div>
 
       </div>
     </div>
