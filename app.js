@@ -1,66 +1,6 @@
 /* Product Data Refinement - Teck Guan Group Application Engine */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Custom Pill Theme Dropdown Elements
-  const themeDropdownBtn = document.getElementById('themeDropdownBtn');
-  const themeMenu = document.getElementById('themeMenu');
-  const themeCurrentLabel = document.getElementById('themeCurrentLabel');
-  const themeOptions = document.querySelectorAll('.custom-theme-option');
-
-  // Load Saved Theme Preference
-  const savedTheme = localStorage.getItem('tg_theme_preference') || 'dark';
-  applyTheme(savedTheme);
-
-  // Toggle Custom Dropdown Menu
-  if (themeDropdownBtn && themeMenu) {
-    themeDropdownBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = themeMenu.classList.toggle('show');
-      themeDropdownBtn.classList.toggle('open', isOpen);
-      themeDropdownBtn.setAttribute('aria-expanded', isOpen);
-    });
-
-    // Option Click Listener
-    themeOptions.forEach(opt => {
-      opt.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const mode = opt.getAttribute('data-value');
-        applyTheme(mode);
-
-        themeMenu.classList.remove('show');
-        themeDropdownBtn.classList.remove('open');
-        themeDropdownBtn.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    // Close Menu on Click Outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.custom-dropdown-container')) {
-        themeMenu.classList.remove('show');
-        themeDropdownBtn.classList.remove('open');
-        themeDropdownBtn.setAttribute('aria-expanded', 'false');
-      }
-    });
-  }
-
-  function applyTheme(mode) {
-    document.documentElement.setAttribute('data-theme', mode);
-    document.body.setAttribute('data-theme', mode);
-    localStorage.setItem('tg_theme_preference', mode);
-
-    // Update Label & Active States (Clean text: 'Light Theme' / 'Dark Theme')
-    if (themeCurrentLabel) {
-      themeCurrentLabel.textContent = mode === 'light' ? 'Light Theme' : 'Dark Theme';
-    }
-
-    themeOptions.forEach(opt => {
-      if (opt.getAttribute('data-value') === mode) {
-        opt.classList.add('active');
-      } else {
-        opt.classList.remove('active');
-      }
-    });
-  }
 
   // --- DUAL UPLOAD UI ELEMENTS ---
   const cutlistDropzone = document.getElementById('cutlistDropzone');
