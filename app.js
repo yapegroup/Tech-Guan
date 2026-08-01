@@ -447,6 +447,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rowStr = nonBlankCells.map(c => String(c || '').trim().toLowerCase()).join(' ');
 
+        // Ignore Document Metadata Header Info Rows
+        if (
+          rowStr.includes('truss material report') ||
+          rowStr.includes('company name') ||
+          rowStr.includes('client name') ||
+          rowStr.includes('job number') ||
+          rowStr.includes('dwg number') ||
+          rowStr.includes('current date')
+        ) {
+          continue;
+        }
+
         // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them
         if (
           rowStr.includes('materials summary') ||
@@ -577,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE WITH SUMMARY SECTION FILTERING ---
+  // --- TEXT CUTLIST PROCESSING PIPELINE WITH SUMMARY SECTION & HEADER FILTERING ---
   function processTextContent(txt, fileName) {
     const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
@@ -607,6 +619,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lowerLine = trimmed.toLowerCase();
 
+        // Ignore Document Metadata Header Info Rows (Truss Material Report, Company Name, Job Number, etc.)
+        if (
+          lowerLine.includes('truss material report') ||
+          lowerLine.includes('company name') ||
+          lowerLine.includes('client name') ||
+          lowerLine.includes('job number') ||
+          lowerLine.includes('dwg number') ||
+          lowerLine.includes('current date') ||
+          lowerLine.includes('material summary by truss') ||
+          (lowerLine.includes('truss') && lowerLine.includes('id') && lowerLine.includes('member'))
+        ) {
+          continue;
+        }
+
         // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them completely
         if (
           lowerLine.includes('materials summary') ||
@@ -621,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (inSummarySection) {
-          if (lowerLine.includes('material summary by truss') || lowerLine.includes('truss  id')) {
+          if (lowerLine.includes('material summary by truss') || (lowerLine.includes('truss') && lowerLine.includes('id'))) {
             inSummarySection = false;
           } else {
             continue;
