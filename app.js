@@ -190,22 +190,29 @@ document.addEventListener('DOMContentLoaded', () => {
   function parseMasterProductListArrayBuffer(arrayBuffer) {
     masterProductSet.clear();
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    
+    // Parse ALL sheets in Existing Product List workbook
+    workbook.SheetNames.forEach(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (!jsonRows || jsonRows.length === 0) return;
+      if (!jsonRows || jsonRows.length === 0) return;
 
-    for (let r = 0; r < jsonRows.length; r++) {
-      const row = jsonRows[r];
-      if (!row) continue;
+      for (let r = 0; r < jsonRows.length; r++) {
+        const row = jsonRows[r];
+        if (!row) continue;
 
-      for (let c = 0; c < row.length; c++) {
-        let val = String(row[c] || '').replace(/[\u00A0\s]+/g, ' ').trim().toUpperCase();
-        if (val && val !== 'PRODUCT' && val !== 'PRODUCT ID' && !val.includes('SUMMARY')) {
-          masterProductSet.add(val);
+        for (let c = 0; c < row.length; c++) {
+          let rawVal = String(row[c] || '').trim();
+          if (!rawVal) continue;
+
+          let cleanVal = rawVal.replace(/[\u00A0\s]+/g, '').toUpperCase();
+          if (cleanVal && cleanVal !== 'PRODUCT' && cleanVal !== 'PRODUCTID' && !cleanVal.includes('SUMMARY')) {
+            masterProductSet.add(cleanVal);
+          }
         }
       }
-    }
+    });
   }
 
   function startCutlistProcessing() {
@@ -461,29 +468,28 @@ document.addEventListener('DOMContentLoaded', () => {
           continue;
         }
 
-        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them
+        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them permanently
         if (
           rowStr.includes('materials summary') ||
           rowStr.includes('parts summary') ||
-          rowStr.includes('material summary') ||
           rowStr.includes('hardware summary') ||
+          rowStr === 'summary' ||
           rowStr.startsWith('summary')
         ) {
-          inSummarySection = true;
-          addLog(`[SUMMARY SECTION DETECTED] Row ${index + 1}: Skipping summary table.`, 'info');
-          continue;
+          if (!rowStr.includes('material summary by truss')) {
+            inSummarySection = true;
+            addLog(`[SUMMARY SECTION DETECTED] Row ${index + 1}: Skipping summary section.`, 'info');
+            continue;
+          }
         }
 
         if (inSummarySection) {
-          if (rowStr.includes('material summary by truss') || rowStr.includes('truss')) {
+          if (rowStr.includes('material summary by truss')) {
             inSummarySection = false;
           } else {
             continue;
           }
         }
-
-        // Individual Cutlist items must have at least 4 non-blank cells (Truss, ID, Member, Qty/Length)
-        if (nonBlankCells.length < 4) continue;
 
         let truss = '', idVal = '', memberCode = '', qty = '1', length = '0';
 
@@ -540,8 +546,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (length === '0') continue;
 
-        if (!truss) truss = (row[0] !== undefined && row[0] !== null ? String(row[0]).trim() : 'N/A');
-        if (!idVal) idVal = (row[1] !== undefined && row[1] !== null ? String(row[1]).trim() : 'N/A');
+        // Smart Combined Cell Splitting for Truss & ID (e.g. row[0] is "HN13 B1")
+        if (row[0]) {
+          const combo = String(row[0]).trim();
+          const parts = combo.split(/\s+/);
+          if (parts.length >= 2) {
+            truss = parts[0];
+            idVal = parts[1];
+          } else {
+            truss = parts[0];
+            if (!idVal || /^(MB|UB|CPLN|UC)\d+/i.test(idVal)) {
+              idVal = (row[1] && !/^(MB|UB|CPLN|UC)\d+/i.test(String(row[1])) ? String(row[1]).trim() : 'N/A');
+            }
+          }
+        }
+
+        if (!truss) truss = 'N/A';
+        if (!idVal || /^(MB|UB|CPLN|UC)\d+/i.test(idVal)) idVal = 'N/A';
 
         // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
@@ -553,17 +574,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // STEP 2: Create Product ID = Renamed Prefix + 'X' + Length
         const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
+        const unspacedProductID = productID.replace(/\s+/g, '');
 
         // STEP 3: Deduplicate Product IDs
-        if (seenProductIDs.has(productID)) {
+        if (seenProductIDs.has(unspacedProductID)) {
           dupsCount++;
           addLog(`[DUP REMOVED] Row ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
           continue;
         }
-        seenProductIDs.add(productID);
+        seenProductIDs.add(unspacedProductID);
 
-        // STEP 4: Compare Product ID against Existing Product List
-        if (masterProductSet.has(productID)) {
+        // STEP 4: Compare Product ID against Existing Product List (checking unspaced format)
+        if (masterProductSet.has(unspacedProductID)) {
           existingMatchRemovedCount++;
           addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
         } else {
@@ -629,27 +651,28 @@ document.addEventListener('DOMContentLoaded', () => {
           lowerLine.includes('job number') ||
           lowerLine.includes('dwg number') ||
           lowerLine.includes('current date') ||
-          lowerLine.includes('material summary by truss') ||
           (lowerLine.includes('truss') && lowerLine.includes('id') && lowerLine.includes('member'))
         ) {
           continue;
         }
 
-        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them completely
+        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them permanently
         if (
           lowerLine.includes('materials summary') ||
           lowerLine.includes('parts summary') ||
-          lowerLine.includes('material summary') ||
           lowerLine.includes('hardware summary') ||
+          lowerLine === 'summary' ||
           lowerLine.startsWith('summary')
         ) {
-          inSummarySection = true;
-          addLog(`[SUMMARY SECTION DETECTED] Line ${index + 1}: '${trimmed}'. Skipping summary table.`, 'info');
-          continue;
+          if (!lowerLine.includes('material summary by truss')) {
+            inSummarySection = true;
+            addLog(`[SUMMARY SECTION DETECTED] Line ${index + 1}: '${trimmed}'. Skipping summary table.`, 'info');
+            continue;
+          }
         }
 
         if (inSummarySection) {
-          if (lowerLine.includes('material summary by truss') || (lowerLine.includes('truss') && lowerLine.includes('id'))) {
+          if (lowerLine.includes('material summary by truss')) {
             inSummarySection = false;
           } else {
             continue;
@@ -657,9 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const tokens = trimmed.split(/\s+/);
-        
-        // Individual Cutlist items must have at least 4 tokens (Truss, ID, Member, Qty, Length)
-        if (tokens.length < 4) continue;
 
         const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
         if (memberTokenIdx !== -1) {
@@ -711,15 +731,16 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
+          const unspacedProductID = productID.replace(/\s+/g, '');
 
-          if (seenProductIDs.has(productID)) {
+          if (seenProductIDs.has(unspacedProductID)) {
             dupsCount++;
             addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
             continue;
           }
-          seenProductIDs.add(productID);
+          seenProductIDs.add(unspacedProductID);
 
-          if (masterProductSet.has(productID)) {
+          if (masterProductSet.has(unspacedProductID)) {
             existingMatchRemovedCount++;
             addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
           } else {
