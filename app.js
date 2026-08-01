@@ -61,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let processedData = []; // New Product List records: [Truss, ID, Member, Qty, Length, Product ID]
   let summaryStats = { total: 0, dups: 0, existingRemoved: 0, clean: 0 };
   let isTxtFile = false;
-  let rawTxtLines = [];
   let allLogEntries = [];
 
   // Log Search Navigation State
@@ -563,7 +562,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const totalCount = lines.length;
     const cleanRecords = [];
-    const cleanTxtLines = [];
     const seenProductIDs = new Set();
     
     let dupsCount = 0;
@@ -624,8 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
               addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
               const record = [truss, idVal, memberCode, qty, length, productID];
               cleanRecords.push(record);
-              const formattedLine = `${truss.padEnd(6)} ${idVal.padEnd(7)} ${memberCode.padEnd(14)} ${qty.padStart(3)}  ${length.padStart(6)}  ${productID}`;
-              cleanTxtLines.push(formattedLine);
             }
           }
         }
@@ -642,7 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalProgressBadge.textContent = '100%';
         modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Refinement Complete!`;
         addLog(`100% complete! Retained ${cleanRecords.length} NEW products in 'New Product List'.`, 'info');
-        setTimeout(() => finalizeTextProcessing(cleanTxtLines, cleanRecords, totalCount, dupsCount, existingMatchRemovedCount), 300);
+        setTimeout(() => finalizeProcessing(cleanRecords, totalCount, dupsCount, existingMatchRemovedCount), 300);
       }
     }
 
@@ -660,18 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSummaryMetrics();
   }
 
-  function finalizeTextProcessing(cleanLines, cleanRecords, totalInput, dupsCount, existingRemovedCount) {
-    rawTxtLines = cleanLines;
-    processedData = cleanRecords;
-    summaryStats = {
-      total: totalInput,
-      dups: dupsCount,
-      existingRemoved: existingRemovedCount,
-      clean: cleanRecords.length
-    };
-    renderSummaryMetrics();
-  }
-
   function renderSummaryMetrics() {
     valTotalRows.textContent = summaryStats.total.toLocaleString();
     valDupsRemoved.textContent = summaryStats.dups.toLocaleString();
@@ -680,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnDownloadXlsx.style.display = 'inline-flex';
     btnDownloadCsv.style.display = 'inline-flex';
-    btnDownloadTxt.style.display = isTxtFile ? 'inline-flex' : 'none';
+    btnDownloadTxt.style.display = 'inline-flex';
 
     modalSummarySection.style.display = 'block';
   }
@@ -710,8 +694,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(link);
   });
 
+  // Dynamic 100% Inline Column Alignment for Text (.txt) Exports
   btnDownloadTxt.addEventListener('click', () => {
-    const txtContent = rawTxtLines.join('\n');
+    const exportData = [STANDARD_HEADERS, ...processedData];
+    
+    // Calculate max width for each column dynamically across headers + data
+    const colWidths = STANDARD_HEADERS.map((h, i) => {
+      return Math.max(h.length, ...processedData.map(r => String(r[i] || '').length));
+    });
+
+    const txtLines = exportData.map(row => {
+      return row.map((cell, idx) => String(cell || '').padEnd(colWidths[idx] + 3)).join('').trimEnd();
+    });
+
+    const txtContent = txtLines.join('\n');
     const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
