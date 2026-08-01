@@ -499,8 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (length === '0') continue;
 
-        if (!truss) truss = (row[0] ? String(row[0]).trim() : 'N/A');
-        if (!idVal) idVal = (row[1] ? String(row[1]).trim() : 'N/A');
+        if (!truss || truss.toUpperCase() === memberCode.toUpperCase()) truss = 'N/A';
+        if (!idVal || idVal.toUpperCase() === memberCode.toUpperCase()) idVal = 'N/A';
 
         // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
@@ -583,8 +583,32 @@ document.addEventListener('DOMContentLoaded', () => {
           const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
           if (memberTokenIdx !== -1) {
             const memberCode = tokens[memberTokenIdx];
-            const truss = tokens[0] || 'N/A';
-            const idVal = tokens[1] || 'N/A';
+            let truss = 'N/A';
+            let idVal = 'N/A';
+
+            if (memberTokenIdx === 2) {
+              truss = tokens[0];
+              idVal = tokens[1];
+            } else if (memberTokenIdx === 1) {
+              const parts = tokens[0].split(/\s+/);
+              if (parts.length >= 2) {
+                truss = parts[0];
+                idVal = parts[1];
+              } else {
+                truss = tokens[0];
+                idVal = 'N/A';
+              }
+            } else if (memberTokenIdx > 2) {
+              truss = tokens[0];
+              idVal = tokens[1];
+            }
+
+            if (truss.toUpperCase() === memberCode.toUpperCase()) {
+              truss = 'N/A';
+            }
+            if (idVal.toUpperCase() === memberCode.toUpperCase()) {
+              idVal = 'N/A';
+            }
             
             const nums = tokens.filter(t => /^\d+$/.test(t));
             let length = '0', qty = '1';
