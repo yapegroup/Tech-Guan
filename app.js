@@ -432,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let dupsCount = 0;
     let existingMatchRemovedCount = 0;
     let index = 0;
+    let inSummarySection = false;
 
     function step() {
       const batchSize = Math.max(1, Math.floor(totalCount / 40));
@@ -443,6 +444,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = validRows[index];
         const nonBlankCells = row.filter(c => String(c || '').trim() !== '');
         if (nonBlankCells.length === 0) continue;
+
+        const rowStr = nonBlankCells.map(c => String(c || '').trim().toLowerCase()).join(' ');
+
+        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them
+        if (
+          rowStr.includes('materials summary') ||
+          rowStr.includes('parts summary') ||
+          rowStr.includes('material summary') ||
+          rowStr.includes('hardware summary') ||
+          rowStr.startsWith('summary')
+        ) {
+          inSummarySection = true;
+          addLog(`[SUMMARY SECTION DETECTED] Row ${index + 1}: Skipping summary table.`, 'info');
+          continue;
+        }
+
+        if (inSummarySection) {
+          if (rowStr.includes('material summary by truss') || rowStr.includes('truss')) {
+            inSummarySection = false;
+          } else {
+            continue;
+          }
+        }
+
+        // Individual Cutlist items must have at least 4 non-blank cells (Truss, ID, Member, Qty/Length)
+        if (nonBlankCells.length < 4) continue;
 
         let truss = '', idVal = '', memberCode = '', qty = '1', length = '0';
 
@@ -550,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE ---
+  // --- TEXT CUTLIST PROCESSING PIPELINE WITH SUMMARY SECTION FILTERING ---
   function processTextContent(txt, fileName) {
     const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
@@ -567,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let dupsCount = 0;
     let existingMatchRemovedCount = 0;
     let index = 0;
+    let inSummarySection = false;
 
     function stepTxt() {
       const batchSize = Math.max(1, Math.floor(totalCount / 40));
@@ -577,75 +605,99 @@ document.addEventListener('DOMContentLoaded', () => {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
+        const lowerLine = trimmed.toLowerCase();
+
+        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them completely
+        if (
+          lowerLine.includes('materials summary') ||
+          lowerLine.includes('parts summary') ||
+          lowerLine.includes('material summary') ||
+          lowerLine.includes('hardware summary') ||
+          lowerLine.startsWith('summary')
+        ) {
+          inSummarySection = true;
+          addLog(`[SUMMARY SECTION DETECTED] Line ${index + 1}: '${trimmed}'. Skipping summary table.`, 'info');
+          continue;
+        }
+
+        if (inSummarySection) {
+          if (lowerLine.includes('material summary by truss') || lowerLine.includes('truss  id')) {
+            inSummarySection = false;
+          } else {
+            continue;
+          }
+        }
+
         const tokens = trimmed.split(/\s+/);
         
-        if (tokens.length >= 2) {
-          const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
-          if (memberTokenIdx !== -1) {
-            const memberCode = tokens[memberTokenIdx];
-            let truss = 'N/A';
-            let idVal = 'N/A';
+        // Individual Cutlist items must have at least 4 tokens (Truss, ID, Member, Qty, Length)
+        if (tokens.length < 4) continue;
 
-            if (tokens.length >= 5) {
-              truss = tokens[0] || 'N/A';
-              idVal = tokens[1] || 'N/A';
-            } else if (memberTokenIdx === 2) {
-              truss = tokens[0] || 'N/A';
-              idVal = tokens[1] || 'N/A';
-            } else if (memberTokenIdx === 1) {
-              const parts = tokens[0].split(/\s+/);
-              if (parts.length >= 2) {
-                truss = parts[0];
-                idVal = parts[1];
-              } else {
-                truss = tokens[0];
-                idVal = 'N/A';
-              }
-            } else if (memberTokenIdx > 2) {
-              truss = tokens[0] || 'N/A';
-              idVal = tokens[1] || 'N/A';
+        const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
+        if (memberTokenIdx !== -1) {
+          const memberCode = tokens[memberTokenIdx];
+          let truss = 'N/A';
+          let idVal = 'N/A';
+
+          if (tokens.length >= 5) {
+            truss = tokens[0] || 'N/A';
+            idVal = tokens[1] || 'N/A';
+          } else if (memberTokenIdx === 2) {
+            truss = tokens[0] || 'N/A';
+            idVal = tokens[1] || 'N/A';
+          } else if (memberTokenIdx === 1) {
+            const parts = tokens[0].split(/\s+/);
+            if (parts.length >= 2) {
+              truss = parts[0];
+              idVal = parts[1];
             } else {
-              truss = tokens[0] || 'N/A';
-              idVal = tokens[1] || 'N/A';
+              truss = tokens[0];
+              idVal = 'N/A';
             }
+          } else if (memberTokenIdx > 2) {
+            truss = tokens[0] || 'N/A';
+            idVal = tokens[1] || 'N/A';
+          } else {
+            truss = tokens[0] || 'N/A';
+            idVal = tokens[1] || 'N/A';
+          }
 
-            const nums = tokens.filter(t => /^\d+$/.test(t));
-            let length = '0', qty = '1';
-            if (nums.length >= 2) {
-              const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
-              if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
-              else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
-              else { qty = nums[0]; length = nums[1]; }
-            } else if (nums.length === 1) {
-              length = nums[0];
-            }
+          const nums = tokens.filter(t => /^\d+$/.test(t));
+          let length = '0', qty = '1';
+          if (nums.length >= 2) {
+            const n1 = parseInt(nums[0], 10), n2 = parseInt(nums[1], 10);
+            if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
+            else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
+            else { qty = nums[0]; length = nums[1]; }
+          } else if (nums.length === 1) {
+            length = nums[0];
+          }
 
-            if (length === '0') continue;
+          if (length === '0') continue;
 
-            let productIDPrefixMember = memberCode;
-            if (memberCode.toUpperCase().startsWith('MB')) {
-              productIDPrefixMember = 'CPLN' + memberCode.substring(2);
-            } else if (memberCode.toUpperCase().startsWith('UB')) {
-              productIDPrefixMember = 'UC' + memberCode.substring(2);
-            }
+          let productIDPrefixMember = memberCode;
+          if (memberCode.toUpperCase().startsWith('MB')) {
+            productIDPrefixMember = 'CPLN' + memberCode.substring(2);
+          } else if (memberCode.toUpperCase().startsWith('UB')) {
+            productIDPrefixMember = 'UC' + memberCode.substring(2);
+          }
 
-            const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
+          const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
 
-            if (seenProductIDs.has(productID)) {
-              dupsCount++;
-              addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
-              continue;
-            }
-            seenProductIDs.add(productID);
+          if (seenProductIDs.has(productID)) {
+            dupsCount++;
+            addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
+            continue;
+          }
+          seenProductIDs.add(productID);
 
-            if (masterProductSet.has(productID)) {
-              existingMatchRemovedCount++;
-              addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
-            } else {
-              addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
-              const record = [truss, idVal, memberCode, qty, length, productID];
-              cleanRecords.push(record);
-            }
+          if (masterProductSet.has(productID)) {
+            existingMatchRemovedCount++;
+            addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
+          } else {
+            addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
+            const record = [truss, idVal, memberCode, qty, length, productID];
+            cleanRecords.push(record);
           }
         }
       }
