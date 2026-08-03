@@ -18,245 +18,219 @@
 </head>
 <body data-theme="light">
 
-  <!-- Navigation Bar -->
-  <nav class="navbar">
-    <div class="brand-container">
-      <img src="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png" 
-           alt="Teck Guan Logo" class="company-logo">
-      <div class="app-title-group">
-        <h1>Teck Guan Group</h1>
-        <span>PRODUCT DATA REFINEMENT</span>
-      </div>
-    </div>
+  <div class="app-layout">
 
-    <!-- Workspace Navigation Tabs & Supabase Connection Badge -->
-    <div class="nav-tabs-container">
-      <div class="nav-tabs">
-        <button class="nav-tab active" id="tabCutlist">
-          <i class="fa-solid fa-gears"></i> Cutlist Refinement
-        </button>
-        <button class="nav-tab" id="tabMasterProduct">
-          <i class="fa-solid fa-boxes-stacked"></i> Master Product List
-        </button>
-      </div>
-
-      <div class="supabase-status-badge connected" id="supaStatusBadge">
-        <i class="fa-solid fa-cloud-check"></i>
-        <span>Supabase: <strong id="supaHeaderCount">Connecting...</strong></span>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Main Workspace Container -->
-  <main class="main-container">
-
-    <!-- ==================== TAB 1: CUTLIST REFINEMENT WORKSPACE ==================== -->
-    <div id="viewCutlist" class="tab-view active">
-      
-      <!-- Data Format & Processing Guidelines -->
-      <section class="glass-card">
-        <div class="info-grid" style="grid-template-columns: 1fr;">
-          <div class="info-box">
-            <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
-            <ul>
-              <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
-              <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
-              <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against Supabase Cloud Database (or uploaded Existing Product List). Retains only **New Products** in the output file: <span class="code-inline">New Product List.xlsx</span>.</li>
-            </ul>
+    <!-- Vertical Left Sidebar Navigation -->
+    <aside class="app-sidebar">
+      <div class="sidebar-top">
+        <div class="brand-container">
+          <img src="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png" 
+               alt="Teck Guan Logo" class="company-logo">
+          <div class="app-title-group">
+            <h1>Teck Guan Group</h1>
+            <span>PRODUCT DATA REFINEMENT</span>
           </div>
         </div>
-      </section>
 
-      <!-- Dual Upload Section -->
-      <section class="glass-card">
-        <div class="card-title">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
-          Upload Required Input Files
-        </div>
-
-        <div class="dual-upload-grid">
-
-          <!-- Upload 1: Cutlist File -->
-          <div class="upload-card" id="cutlistDropzone">
-            <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
-            <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
-            <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
-
-            <!-- Format Preview Helper Badge -->
-            <div class="format-preview-pill">
-              <i class="fa-solid fa-table-columns"></i>
-              <span>Expected Columns: <strong>Truss</strong> | <strong>ID</strong> | <strong>Member</strong> | <strong>Qty</strong> | <strong>Length</strong></span>
-            </div>
-
-            <div id="cutlistFileStatus" class="file-status-text"></div>
-            <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
-              <i class="fa-solid fa-folder-open"></i> Select Cutlist File
-            </button>
-          </div>
-
-          <!-- Upload 2: Existing Product List File (Auto-filled from Supabase if connected) -->
-          <div class="upload-card" id="productDropzone">
-            <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
-            <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
-            <div class="upload-sub" id="productUploadSub">Supports .xlsx, .xls, .csv</div>
-
-            <!-- Format Preview Helper Badge -->
-            <div class="format-preview-pill success">
-              <i class="fa-solid fa-list-check"></i>
-              <span>Expected Format: <strong>Product</strong> column (e.g. <span class="code-inline">CPLN10010X9750</span>)</span>
-            </div>
-
-            <div id="productFileStatus" class="file-status-text"></div>
-            <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
-              <i class="fa-solid fa-folder-open"></i> Select Existing Product List
-            </button>
-          </div>
-
-        </div>
-
-        <!-- Action Button to Start Process -->
-        <div style="text-align: center; margin-top: 1.5rem;">
-          <button id="btnProcessData" class="btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.05rem;" disabled>
-            <i class="fa-solid fa-gears"></i> Process & Generate New Product List
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+          <button class="nav-tab active" id="tabCutlist">
+            <i class="fa-solid fa-gears"></i> Cut list Refinement
           </button>
+          <button class="nav-tab" id="tabMasterProduct">
+            <i class="fa-solid fa-boxes-stacked"></i> Master Product List
+          </button>
+          <button class="nav-tab" id="tabProductSettings">
+            <i class="fa-solid fa-sliders"></i> Product Settings
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="supabase-status-badge connected" id="supaStatusBadge">
+          <i class="fa-solid fa-cloud-check"></i>
+          <span>Supabase: <strong id="supaHeaderCount">Connecting...</strong></span>
         </div>
+      </div>
+    </aside>
 
-        <!-- User Instruction Note between Upload & Sample Files -->
-        <div class="sample-note-banner">
-          <i class="fa-solid fa-lightbulb"></i>
-          <span><strong>Note:</strong> You can upload custom Cutlist & Existing Product List files above, or click any sample preset below to auto-load sample files and test immediately.</span>
-        </div>
+    <!-- Main Workspace Container -->
+    <main class="main-container">
 
-        <!-- Quick Preset Sample Testing & Direct Downloads -->
-        <div class="sample-presets">
-          <div class="sample-item-group">
-            <button id="sampleExcelBtn" class="btn-secondary">
-              <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
-            </button>
-            <a href="TG/working sheet.xlsx" download="working sheet.xlsx" class="btn-download-sample" title="Download sample cutlist">
-              <i class="fa-solid fa-download"></i> Cutlist .xlsx
-            </a>
-            <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Existing Product List">
-              <i class="fa-solid fa-download"></i> Existing Product List
-            </a>
-          </div>
-
-          <div class="sample-item-group">
-            <button id="sampleTxtBtn" class="btn-secondary">
-              <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cutlist.txt' + 'Products (53)'
-            </button>
-            <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download sample text cutlist">
-              <i class="fa-solid fa-download"></i> Cutlist .txt
-            </a>
-          </div>
-        </div>
-      </section>
-
-    </div>
-
-    <!-- ==================== TAB 2: MASTER PRODUCT LIST WORKSPACE ==================== -->
-    <div id="viewMasterProduct" class="tab-view">
-      
-      <!-- Top Section: Bulk Upload & Manual Add -->
-      <div class="master-header-grid">
+      <!-- ==================== TAB 1: CUT LIST REFINEMENT WORKSPACE ==================== -->
+      <div id="viewCutlist" class="tab-view active">
         
-        <!-- Box A: Supabase Bulk Upload Card -->
-        <div class="glass-card" style="margin-bottom: 0;">
-          <div class="card-title" style="margin-bottom: 0.75rem;">
-            <i class="fa-solid fa-cloud-arrow-up" style="color: var(--success);"></i>
-            Upload File to Supabase Cloud Database
+        <!-- Data Format & Processing Guidelines -->
+        <section class="glass-card">
+          <div class="info-grid" style="grid-template-columns: 1fr;">
+            <div class="info-box">
+              <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
+              <ul>
+                <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
+                <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
+                <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against Supabase Cloud Database (or uploaded Existing Product List). Retains only **New Products** in the output file: <span class="code-inline">New Product List.xlsx</span>.</li>
+              </ul>
+            </div>
           </div>
-          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-            Select or drag & drop an Excel/CSV file containing your Master Product IDs (e.g. <span class="code-inline">Products (53).xlsx</span>). All unique Product IDs will be uploaded to Supabase.
-          </p>
+        </section>
 
-          <div class="upload-card" id="supaBulkDropzone" style="padding: 1.25rem;">
-            <input type="file" id="supaBulkInput" accept=".xlsx,.xls,.csv" style="display: none;">
-            <div class="upload-icon" style="color: var(--success); font-size: 2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
-            <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
+        <!-- Dual Upload Section -->
+        <section class="glass-card">
+          <div class="card-title">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            Upload Required Input Files
+          </div>
 
-            <!-- Upload Progress Bar -->
-            <div id="supaUploadProgressContainer" style="display: none; width: 100%; margin-top: 0.85rem;">
-              <div class="progress-bar-bg" style="height: 10px;">
-                <div id="supaUploadProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+          <div class="dual-upload-grid">
+
+            <!-- Upload 1: Cut list File -->
+            <div class="upload-card" id="cutlistDropzone">
+              <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+              <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
+              <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
+
+              <!-- Format Preview Helper Badge -->
+              <div class="format-preview-pill">
+                <i class="fa-solid fa-table-columns"></i>
+                <span>Expected Columns: <strong>Truss</strong> | <strong>ID</strong> | <strong>Member</strong> | <strong>Qty</strong> | <strong>Length</strong></span>
               </div>
-              <div id="supaUploadStatusText" style="font-size: 0.8rem; color: var(--primary); margin-top: 0.4rem; text-align: center;">Uploading...</div>
-            </div>
 
-            <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="supaBulkBtn">
-              <i class="fa-solid fa-upload"></i> Upload & Import to Supabase
-            </button>
-          </div>
-        </div>
-
-        <!-- Box B: Add Single Product Card -->
-        <div class="glass-card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
-          <div>
-            <div class="card-title" style="margin-bottom: 0.75rem;">
-              <i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i>
-              Add Single Product ID
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-              Manually insert a single new Product ID into your Supabase Master Product List.
-            </p>
-
-            <div class="form-group" style="margin-bottom: 1rem;">
-              <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.4rem;">Product ID Code:</label>
-              <input type="text" id="inputSingleProductID" placeholder="e.g. CPLN10010X9750" class="custom-input">
-            </div>
-          </div>
-
-          <button type="button" class="btn-primary" id="btnSingleAddProduct" style="width: 100%; padding: 0.8rem;">
-            <i class="fa-solid fa-plus"></i> Add Product ID to Database
-          </button>
-        </div>
-
-      </div>
-
-      <!-- Bottom Section: Live Supabase Master Product Data Table -->
-      <section class="glass-card" style="margin-top: 1.5rem;">
-        <div class="master-table-controls">
-          <div class="card-title" style="margin-bottom: 0; white-space: nowrap;">
-            <i class="fa-solid fa-table-list" style="color: var(--primary);"></i>
-            Master Product Catalog
-          </div>
-
-          <!-- Table Search Box & Controls -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
-            <div class="terminal-search-box" style="max-width: 380px; flex: 1;">
-              <i class="fa-solid fa-magnifying-glass search-icon"></i>
-              <input type="text" id="supaTableSearch" placeholder="Search product code (e.g. CPLN10010X9750)...">
-              <button id="btnSupaSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
-                <i class="fa-solid fa-xmark"></i>
+              <div id="cutlistFileStatus" class="file-status-text"></div>
+              <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
+                <i class="fa-solid fa-folder-open"></i> Select Cut list File
               </button>
             </div>
 
-            <button id="btnRefreshSupaTable" class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem;" title="Refresh data from Supabase">
-              <i class="fa-solid fa-rotate-right"></i> Refresh
-            </button>
+            <!-- Upload 2: Existing Product List File (Auto-filled from Supabase if connected) -->
+            <div class="upload-card" id="productDropzone">
+              <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
+              <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
+              <div class="upload-sub" id="productUploadSub">Supports .xlsx, .xls, .csv</div>
 
-            <span id="supaTableCountBadge" class="match-count-badge" style="font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md);">
-              Showing 0 products
-            </span>
+              <!-- Format Preview Helper Badge -->
+              <div class="format-preview-pill success">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Expected Format: <strong>Product</strong> column (e.g. <span class="code-inline">CPLN10010X9750</span>)</span>
+              </div>
+
+              <div id="productFileStatus" class="file-status-text"></div>
+              <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
+                <i class="fa-solid fa-folder-open"></i> Select Existing Product List
+              </button>
+            </div>
+
           </div>
+
+          <!-- Action Button to Start Process -->
+          <div style="text-align: center; margin-top: 1.5rem;">
+            <button id="btnProcessData" class="btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.05rem;" disabled>
+              <i class="fa-solid fa-gears"></i> Process & Generate New Product List
+            </button>
+          </div>
+
+          <!-- User Instruction Note between Upload & Sample Files -->
+          <div class="sample-note-banner">
+            <i class="fa-solid fa-lightbulb"></i>
+            <span><strong>Note:</strong> You can upload custom Cut list & Existing Product List files above, or click any sample preset below to auto-load sample files and test immediately.</span>
+          </div>
+
+          <!-- Quick Preset Sample Testing & Direct Downloads -->
+          <div class="sample-presets">
+            <div class="sample-item-group">
+              <button id="sampleExcelBtn" class="btn-secondary">
+                <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
+              </button>
+              <a href="TG/working sheet.xlsx" download="working sheet.xlsx" class="btn-download-sample" title="Download sample cut list">
+                <i class="fa-solid fa-download"></i> Cut list .xlsx
+              </a>
+              <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Existing Product List">
+                <i class="fa-solid fa-download"></i> Existing Product List
+              </a>
+            </div>
+
+            <div class="sample-item-group">
+              <button id="sampleTxtBtn" class="btn-secondary">
+                <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cut list.txt' + 'Products (53)'
+              </button>
+              <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download sample text cut list">
+                <i class="fa-solid fa-download"></i> Cut list .txt
+              </a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ==================== TAB 2: MASTER PRODUCT LIST WORKSPACE ==================== -->
+      <div id="viewMasterProduct" class="tab-view">
+        
+        <!-- Top Section: 2 Action Buttons for Adding Records -->
+        <div class="master-action-bar">
+          <button type="button" id="btnOpenSingleAddModal" class="btn-action-primary">
+            <i class="fa-solid fa-plus-circle"></i> Add Product
+          </button>
+          <button type="button" id="btnOpenBulkUploadModal" class="btn-action-secondary">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Upload & Overwrite Product List
+          </button>
         </div>
 
-        <!-- Master Product Data Table -->
-        <div class="detail-table-wrapper" style="max-height: 520px; margin-top: 1rem;">
-          <table class="detail-table" id="supaMasterTable">
-            <thead>
-              <tr>
-                <th style="width: 70px;">#</th>
-                <th>Product ID</th>
-                <th>Created Date</th>
-                <th style="width: 100px; text-align: center;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="supaMasterTableBody">
-              <!-- Rendered dynamically -->
-            </tbody>
-          </table>
-        </div>
+        <!-- Bottom Section: Live Supabase Master Product Data Table -->
+        <section class="glass-card">
+          <div class="master-table-controls">
+            <!-- Table Search Box & Controls -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
+              <div class="terminal-search-box" style="max-width: 380px; flex: 1;">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="supaTableSearch" placeholder="Search product code or description...">
+                <button id="btnSupaSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <button id="btnRefreshSupaTable" class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem;" title="Refresh data from Supabase">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+              </button>
+
+              <span id="supaTableCountBadge" class="match-count-badge" style="font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md);">
+                Showing 0 products
+              </span>
+            </div>
+          </div>
+
+          <!-- Master Product Data Table (8 Standard Columns from Product List File) -->
+          <div class="detail-table-wrapper" style="max-height: 540px; margin-top: 1rem; overflow-x: auto;">
+            <table class="detail-table settings-selectable-table" id="supaMasterTable">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;">
+                    <input type="checkbox" id="selectAllMasterCheck" title="Select All">
+                  </th>
+                  <th style="width: 45px;">#</th>
+                  <th>Product</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Group</th>
+                  <th>GTIN</th>
+                  <th>Category</th>
+                  <th>Base UOM</th>
+                  <th>Created By</th>
+                </tr>
+              </thead>
+              <tbody id="supaMasterTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Action Bar for Selected Master Products -->
+          <div class="settings-bottom-bar" id="masterBottomActions" style="display: none; margin-top: 1rem;">
+            <button type="button" id="btnMasterEdit" class="btn-secondary" disabled style="display: inline-flex;">
+              <i class="fa-solid fa-pen-to-square"></i> Edit Product
+            </button>
+            <button type="button" id="btnMasterDelete" class="btn-icon-danger" disabled>
+              <i class="fa-solid fa-trash-can"></i> Delete Selected
+            </button>
+          </div>
 
         <!-- Pagination Controls -->
         <div class="pagination-bar">
@@ -265,11 +239,17 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button id="btnSupaFirstPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
+              <i class="fa-solid fa-angles-left"></i> First
+            </button>
             <button id="btnSupaPrevPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
               <i class="fa-solid fa-chevron-left"></i> Previous
             </button>
             <button id="btnSupaNextPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
               Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <button id="btnSupaLastPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
+              Last <i class="fa-solid fa-angles-right"></i>
             </button>
           </div>
         </div>
@@ -277,6 +257,66 @@
       </section>
 
     </div>
+
+      <!-- ==================== TAB 3: PRODUCT SETTINGS WORKSPACE ==================== -->
+      <div id="viewProductSettings" class="tab-view">
+        <section class="glass-card">
+          <!-- Category Sub-Tabs -->
+          <div class="settings-category-nav">
+            <button type="button" class="settings-sub-tab active" data-cat="types">
+              <i class="fa-solid fa-tags"></i> Product Types
+            </button>
+            <button type="button" class="settings-sub-tab" data-cat="groups">
+              <i class="fa-solid fa-layer-group"></i> Product Groups
+            </button>
+            <button type="button" class="settings-sub-tab" data-cat="gtins">
+              <i class="fa-solid fa-barcode"></i> GTINs
+            </button>
+            <button type="button" class="settings-sub-tab" data-cat="categories">
+              <i class="fa-solid fa-list"></i> Product Categories
+            </button>
+            <button type="button" class="settings-sub-tab" data-cat="uoms">
+              <i class="fa-solid fa-ruler-combined"></i> Base Units of Measure
+            </button>
+          </div>
+
+          <!-- Add New Item Control Bar -->
+          <form id="settingsAddForm" class="settings-add-bar">
+            <input type="text" id="inputSettingsNewOption" class="custom-input" placeholder="Enter new option value..." required>
+            <button type="submit" class="btn-primary" style="white-space: nowrap;">
+              <i class="fa-solid fa-plus"></i> Add Option
+            </button>
+          </form>
+
+          <!-- Dropdown List Options Data Table View -->
+          <div class="detail-table-wrapper" style="max-height: 440px; margin-top: 1rem; max-width: 680px;">
+            <table class="detail-table settings-selectable-table" id="settingsTable">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;">
+                    <input type="checkbox" id="selectAllSettingsCheck" title="Select All">
+                  </th>
+                  <th style="width: 50px;">#</th>
+                  <th>Option Value</th>
+                </tr>
+              </thead>
+              <tbody id="settingsTableBody">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Action Bar for Selected Row(s) -->
+          <div class="settings-bottom-bar" id="settingsBottomBar" style="display: none; max-width: 680px;">
+            <button type="button" id="btnSettingsEdit" class="btn-secondary" disabled style="display: inline-flex;">
+              <i class="fa-solid fa-pen-to-square"></i> Edit Option
+            </button>
+            <button type="button" id="btnSettingsDelete" class="btn-icon-danger" disabled>
+              <i class="fa-solid fa-trash-can"></i> Delete Selected
+            </button>
+          </div>
+        </section>
+      </div>
 
   </main>
 
@@ -461,5 +501,319 @@
     </div>
   </div>
 
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div id="deleteConfirmModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+          Confirm Delete
+        </h2>
+        <button id="deleteConfirmModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 1.75rem 1.5rem;">
+        <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+          <i class="fa-solid fa-trash-can" style="color: #ef4444; font-size: 1.75rem;"></i>
+        </div>
+        <div id="deleteConfirmModalText" style="font-size: 0.925rem; color: var(--text-main); line-height: 1.5; margin-bottom: 1.5rem;">
+          Are you sure you want to delete this record? This action cannot be undone.
+        </div>
+        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+          <button type="button" id="btnCancelDeleteConfirm" class="btn-secondary" style="padding: 0.6rem 1.4rem;">Cancel</button>
+          <button type="button" id="btnProceedDeleteConfirm" class="btn-icon-danger" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 0.6rem 1.4rem; font-weight: 600;">
+            <i class="fa-solid fa-trash-can"></i> Yes, Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUCCESS NOTICE MODAL -->
+  <div id="successNoticeModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+          Data Added Successfully
+        </h2>
+        <button id="successNoticeModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 1.75rem 1.5rem;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+          <i class="fa-solid fa-check" style="color: #10b981; font-size: 2rem;"></i>
+        </div>
+        <div id="successNoticeModalText" style="font-size: 0.95rem; color: var(--text-main); line-height: 1.5; margin-bottom: 1.5rem; font-weight: 500;">
+          New data has been successfully added to the database.
+        </div>
+        <button type="button" id="btnSuccessNoticeOk" class="btn-primary" style="padding: 0.65rem 2.2rem; font-size: 0.9rem;">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PRODUCT MODAL -->
+  <div id="editProductModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 720px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i>
+          Edit Product
+        </h2>
+        <button id="editProductModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="editProductForm" class="modal-body" style="padding-top: 1rem;">
+        <input type="hidden" id="editProductOriginalId">
+        <div class="grid-form-2col">
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product ID / Code <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="editInputProduct" class="custom-input" required readonly style="background-color: rgba(148, 163, 184, 0.1); cursor: not-allowed;">
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Description <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="editInputProductDesc" placeholder="e.g. C PURLIN 100X10 X 9750" class="custom-input" required>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Type <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectProductType" class="custom-select" required>
+              <option value="">-- Select Product Type --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Group <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectProductGroup" class="custom-select" required>
+              <option value="">-- Select Product Group --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              GTIN <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectGTIN" class="custom-select" required>
+              <option value="">-- Select GTIN --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Category <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectProductCategory" class="custom-select" required>
+              <option value="">-- Select Product Category --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Base Unit of Measure <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectBaseUOM" class="custom-select" required>
+              <option value="">-- Select Base Unit of Measure --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Created By <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="editInputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" id="editProductCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" id="btnSaveEditProduct" class="btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Update Product
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SINGLE RECORD MANUAL ADD MODAL -->
+  <div id="singleRecordModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 720px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i>
+          Add Product
+        </h2>
+        <button id="singleRecordModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="singleRecordForm" class="modal-body" style="padding-top: 1rem;">
+        <div class="grid-form-2col">
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product ID / Code <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="inputProduct" placeholder="e.g. CPLN10010X9750" class="custom-input" required>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Description <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="inputProductDesc" placeholder="e.g. C PURLIN 100X10 X 9750" class="custom-input" required>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Type <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectProductType" class="custom-select" required>
+              <option value="">-- Select Product Type --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Group <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectProductGroup" class="custom-select" required>
+              <option value="">-- Select Product Group --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              GTIN <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectGTIN" class="custom-select" required>
+              <option value="">-- Select GTIN --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Product Category <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectProductCategory" class="custom-select" required>
+              <option value="">-- Select Product Category --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Base Unit of Measure <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectBaseUOM" class="custom-select" required>
+              <option value="">-- Select Base Unit of Measure --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              Created By <span style="color: var(--danger);">*</span>
+            </label>
+            <input type="text" id="inputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" id="singleRecordCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" id="btnSingleAddProduct" class="btn-primary">
+            <i class="fa-solid fa-plus"></i> Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- BULK FILE UPLOAD MODAL -->
+  <div id="bulkUploadModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-cloud-arrow-up" style="color: #0284c7;"></i>
+          Upload & Overwrite Product List
+        </h2>
+        <button id="bulkUploadModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 1.25rem;">
+        <!-- Caution Warning Note -->
+        <div class="caution-banner" style="background: rgba(245, 158, 11, 0.09); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 0.75rem;">
+          <i class="fa-solid fa-triangle-exclamation" style="color: #d97706; font-size: 1.25rem; flex-shrink: 0; margin-top: 0.1rem;"></i>
+          <div style="font-size: 0.825rem; color: var(--text-main); line-height: 1.45;">
+            <strong style="color: #d97706; font-weight: 700; display: block; margin-bottom: 0.2rem;">CAUTION: Overwrite Warning</strong>
+            Uploading a product file will <strong>overwrite all existing product records</strong> in the database. Please ensure your Excel file contains complete and up-to-date product list.
+          </div>
+        </div>
+
+        <!-- File Upload Dropzone -->
+        <div class="upload-card" id="supaBulkDropzone" style="padding: 1.5rem;">
+          <input type="file" id="supaBulkInput" accept=".xlsx,.xls,.csv" style="display: none;">
+          <div class="upload-icon" style="color: #0284c7; font-size: 2.2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
+          <div class="upload-sub" style="font-weight: 600; color: var(--text-main);">Drag & drop Product file here or click to browse</div>
+          <div class="upload-sub" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Supports Excel (.xlsx, .xls) and CSV (.csv)</div>
+
+          <button type="button" class="btn-primary" style="margin-top: 1rem;" id="supaBulkBtn">
+            <i class="fa-solid fa-folder-open"></i> Select Excel File
+          </button>
+        </div>
+
+        <!-- File Confirmation Box (Hidden until file selected) -->
+        <div id="supaFileConfirmContainer" style="display: none; margin-top: 1.25rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); padding: 1.1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-file-circle-check" style="color: #10b981; font-size: 1.6rem; flex-shrink: 0;"></i>
+            <div style="flex: 1; overflow: hidden;">
+              <div id="supaFileNameBadge" style="font-weight: 700; font-size: 0.9rem; color: var(--text-main); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                No file selected
+              </div>
+              <div id="supaFileRecordBadge" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
+                0 product records detected
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm & Replace Action Button -->
+          <button type="button" id="btnConfirmBulkReplace" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem 1rem; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); font-weight: 600;">
+            <i class="fa-solid fa-arrows-rotate"></i> Confirm Import & Overwrite Product List
+          </button>
+        </div>
+
+        <!-- Upload Progress Bar -->
+        <div id="supaUploadProgressContainer" style="display: none; width: 100%; margin-top: 1.25rem;">
+          <div class="progress-bar-bg" style="height: 10px;">
+            <div id="supaUploadProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div id="supaUploadStatusText" style="font-size: 0.8rem; color: var(--primary); margin-top: 0.4rem; text-align: center; font-weight: 600;">Uploading...</div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+          <button type="button" id="bulkUploadCancelBtn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    </main>
+  </div>
+
 </body>
 </html>
+
