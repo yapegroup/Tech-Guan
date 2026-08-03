@@ -1,6 +1,25 @@
 /* Product Data Refinement - Teck Guan Group Application Engine */
 
+// --- SUPABASE CLOUD CONFIGURATION ---
+const SUPABASE_URL = 'https://wqskbrcgrzhqeppqfsso.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indxc2ticmNncnpocWVwcHFmc3NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2OTkzMDEsImV4cCI6MjEwMTI3NTMwMX0.TCI8gL7ZomprJej_o30iC62qOSarq0qnfbUdi0LbHp8';
+
+// Initialize Supabase Client via CDN
+let supabaseClient = null;
+if (typeof supabase !== 'undefined') {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+
+  // --- NAVIGATION TABS & VIEWS ---
+  const tabCutlist = document.getElementById('tabCutlist');
+  const tabMasterProduct = document.getElementById('tabMasterProduct');
+  const viewCutlist = document.getElementById('viewCutlist');
+  const viewMasterProduct = document.getElementById('viewMasterProduct');
+
+  const supaStatusBadge = document.getElementById('supaStatusBadge');
+  const supaHeaderCount = document.getElementById('supaHeaderCount');
 
   // --- DUAL UPLOAD UI ELEMENTS ---
   const cutlistDropzone = document.getElementById('cutlistDropzone');
@@ -12,8 +31,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const productInput = document.getElementById('productInput');
   const productBtn = document.getElementById('productBtn');
   const productFileStatus = document.getElementById('productFileStatus');
+  const productUploadSub = document.getElementById('productUploadSub');
 
   const btnProcessData = document.getElementById('btnProcessData');
+
+  // --- MASTER PRODUCT TAB ELEMENTS ---
+  const supaBulkDropzone = document.getElementById('supaBulkDropzone');
+  const supaBulkInput = document.getElementById('supaBulkInput');
+  const supaBulkBtn = document.getElementById('supaBulkBtn');
+  const supaUploadProgressContainer = document.getElementById('supaUploadProgressContainer');
+  const supaUploadProgressBar = document.getElementById('supaUploadProgressBar');
+  const supaUploadStatusText = document.getElementById('supaUploadStatusText');
+
+  const inputSingleProductID = document.getElementById('inputSingleProductID');
+  const btnSingleAddProduct = document.getElementById('btnSingleAddProduct');
+
+  const supaTableSearch = document.getElementById('supaTableSearch');
+  const btnSupaSearchClear = document.getElementById('btnSupaSearchClear');
+  const btnRefreshSupaTable = document.getElementById('btnRefreshSupaTable');
+  const supaTableCountBadge = document.getElementById('supaTableCountBadge');
+  const supaMasterTableBody = document.getElementById('supaMasterTableBody');
+  const supaPageCurrent = document.getElementById('supaPageCurrent');
+  const supaPageTotal = document.getElementById('supaPageTotal');
+  const btnSupaPrevPage = document.getElementById('btnSupaPrevPage');
+  const btnSupaNextPage = document.getElementById('btnSupaNextPage');
 
   // Unified Pop-up Modal Elements
   const refinementModal = document.getElementById('refinementModal');
@@ -65,15 +106,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const sampleExcelBtn = document.getElementById('sampleExcelBtn');
   const sampleTxtBtn = document.getElementById('sampleTxtBtn');
 
-  // Standardized 6-Column Output Schema: [Truss, ID, Member, Qty, Length, Product ID]
+  // Standardized 6-Column Output Schema
   const STANDARD_HEADERS = ['Truss', 'ID', 'Member', 'Qty', 'Length', 'Product ID'];
 
   // Application State
   let cutlistFile = null;
   let masterProductFile = null;
-  let masterProductSet = new Set(); // Stores uppercase product codes from Existing Product List
+  let masterProductSet = new Set(); // Stores uppercase unspaced product codes
 
-  let processedData = []; // New Product List records: [Truss, ID, Member, Qty, Length, Product ID]
+  // Supabase Data Cache & Pagination
+  let supabaseProductsList = []; // Raw records array from Supabase: [{ id, product_id, created_at }]
+  let supaCurrentPage = 1;
+  const supaPageSize = 25;
+
+  let processedData = [];
   let summaryStats = { total: 0, dups: 0, existingRemoved: 0, clean: 0 };
   let isTxtFile = false;
   let allLogEntries = [];
@@ -92,6 +138,307 @@ document.addEventListener('DOMContentLoaded', () => {
   // Log Search Navigation State
   let matchingLogElements = [];
   let currentMatchIdx = -1;
+
+  // --- TAB SWITCHING HANDLERS ---
+  tabCutlist.addEventListener('click', () => {
+    tabCutlist.classList.add('active');
+    tabMasterProduct.classList.remove('active');
+    viewCutlist.classList.add('active');
+    viewMasterProduct.classList.remove('active');
+  });
+
+  tabMasterProduct.addEventListener('click', () => {
+    tabMasterProduct.classList.add('active');
+    tabCutlist.classList.remove('active');
+    viewMasterProduct.classList.add('active');
+    viewCutlist.classList.remove('active');
+  });
+
+  // --- SUPABASE INITIALIZATION & SYNC ---
+  async function syncWithSupabase() {
+    if (!supabaseClient) {
+      supaStatusBadge.className = 'supabase-status-badge';
+      supaHeaderCount.textContent = 'Offline';
+      return;
+    }
+
+    try {
+      supaHeaderCount.textContent = 'Syncing...';
+      supaStatusBadge.className = 'supabase-status-badge connecting';
+
+      // Fetch all products from Supabase table master_products
+      const { data, error } = await supabaseClient
+        .from('master_products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      supabaseProductsList = data || [];
+      masterProductSet.clear();
+
+      supabaseProductsList.forEach(item => {
+        if (item.product_id) {
+          const cleanVal = String(item.product_id).replace(/[\u00A0\s]+/g, '').toUpperCase();
+          if (cleanVal) masterProductSet.add(cleanVal);
+        }
+      });
+
+      const countStr = masterProductSet.size.toLocaleString();
+      supaHeaderCount.textContent = `${countStr} products`;
+      supaStatusBadge.className = 'supabase-status-badge connected';
+
+      // Auto-populate Cutlist Tab Upload Box 2 if products exist in Supabase
+      if (masterProductSet.size > 0 && !masterProductFile) {
+        productFileStatus.innerHTML = `<i class="fa-solid fa-cloud-check" style="color: var(--success);"></i> Auto-loaded ${countStr} products from Supabase`;
+        productDropzone.classList.add('loaded');
+        checkReadyState();
+      }
+
+      renderMasterProductTable();
+    } catch (err) {
+      console.warn('Supabase fetch notice:', err.message);
+      supaHeaderCount.textContent = 'Ready';
+      supaStatusBadge.className = 'supabase-status-badge connected';
+    }
+  }
+
+  syncWithSupabase();
+
+  // --- RENDER MASTER PRODUCT LIVE TABLE WITH SEARCH & PAGINATION ---
+  function renderMasterProductTable() {
+    const filterTerm = supaTableSearch ? supaTableSearch.value.trim().toLowerCase() : '';
+    if (btnSupaSearchClear) btnSupaSearchClear.style.display = filterTerm ? 'inline-flex' : 'none';
+
+    const filtered = supabaseProductsList.filter(item => {
+      if (!filterTerm) return true;
+      const haystack = `${item.product_id} ${item.created_at || ''}`.toLowerCase();
+      return haystack.includes(filterTerm);
+    });
+
+    const totalCount = filtered.length;
+    supaTableCountBadge.textContent = `Showing ${totalCount.toLocaleString()} products`;
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / supaPageSize));
+    if (supaCurrentPage > totalPages) supaCurrentPage = totalPages;
+
+    supaPageCurrent.textContent = supaCurrentPage;
+    supaPageTotal.textContent = totalPages;
+
+    btnSupaPrevPage.disabled = supaCurrentPage <= 1;
+    btnSupaNextPage.disabled = supaCurrentPage >= totalPages;
+
+    supaMasterTableBody.innerHTML = '';
+
+    if (totalCount === 0) {
+      supaMasterTableBody.innerHTML = `
+        <tr>
+          <td colspan="4" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+            <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
+            No master products found in Supabase. Upload an Excel file or add a product code above.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const startIndex = (supaCurrentPage - 1) * supaPageSize;
+    const pageItems = filtered.slice(startIndex, startIndex + supaPageSize);
+    const fragment = document.createDocumentFragment();
+
+    pageItems.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      const rowNum = startIndex + idx + 1;
+      const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A';
+
+      tr.innerHTML = `
+        <td style="font-family: var(--font-mono); color: var(--text-dim);">${rowNum}</td>
+        <td><strong style="color: var(--primary); font-family: var(--font-mono); font-size: 0.9rem;">${escapeHtml(item.product_id)}</strong></td>
+        <td style="font-size: 0.8rem; color: var(--text-muted);">${dateStr}</td>
+        <td style="text-align: center;">
+          <button class="btn-icon-danger" data-id="${item.product_id}" title="Delete Product from Supabase">
+            <i class="fa-solid fa-trash-can"></i> Delete
+          </button>
+        </td>
+      `;
+      fragment.appendChild(tr);
+    });
+
+    supaMasterTableBody.appendChild(fragment);
+
+    // Attach Delete Action Listeners
+    supaMasterTableBody.querySelectorAll('.btn-icon-danger').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const pID = e.currentTarget.getAttribute('data-id');
+        deleteSingleSupabaseProduct(pID);
+      });
+    });
+  }
+
+  btnSupaPrevPage.addEventListener('click', () => {
+    if (supaCurrentPage > 1) { supaCurrentPage--; renderMasterProductTable(); }
+  });
+
+  btnSupaNextPage.addEventListener('click', () => {
+    supaCurrentPage++; renderMasterProductTable();
+  });
+
+  if (supaTableSearch) supaTableSearch.addEventListener('input', () => { supaCurrentPage = 1; renderMasterProductTable(); });
+  if (btnSupaSearchClear) btnSupaSearchClear.addEventListener('click', () => {
+    if (supaTableSearch) supaTableSearch.value = '';
+    supaCurrentPage = 1; renderMasterProductTable();
+  });
+  if (btnRefreshSupaTable) btnRefreshSupaTable.addEventListener('click', syncWithSupabase);
+
+  // --- BULK UPLOAD EXCEL FILE TO SUPABASE ---
+  supaBulkDropzone.addEventListener('click', () => supaBulkInput.click());
+  supaBulkBtn.addEventListener('click', (e) => { e.stopPropagation(); supaBulkInput.click(); });
+
+  supaBulkInput.addEventListener('change', async (e) => {
+    if (e.target.files.length > 0) {
+      await processBulkSupabaseUpload(e.target.files[0]);
+    }
+  });
+
+  async function processBulkSupabaseUpload(file) {
+    if (!supabaseClient) {
+      showAlert('Supabase client is not connected.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        supaUploadProgressContainer.style.display = 'block';
+        supaUploadProgressBar.style.width = '10%';
+        supaUploadStatusText.textContent = 'Parsing Excel file...';
+
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        const extractedCodes = new Set();
+        workbook.SheetNames.forEach(sheetName => {
+          const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+          if (jsonRows) {
+            jsonRows.forEach(row => {
+              if (Array.isArray(row)) {
+                row.forEach(cell => {
+                  let rawVal = String(cell || '').trim();
+                  if (!rawVal) return;
+                  let cleanVal = rawVal.replace(/[\u00A0\s]+/g, '').toUpperCase();
+                  if (cleanVal && cleanVal !== 'PRODUCT' && cleanVal !== 'PRODUCTID' && !cleanVal.includes('SUMMARY') && cleanVal.length >= 4) {
+                    extractedCodes.add(cleanVal);
+                  }
+                });
+              }
+            });
+          }
+        });
+
+        const codesArray = Array.from(extractedCodes);
+        if (codesArray.length === 0) {
+          showAlert('No valid Product IDs found in the uploaded file.');
+          supaUploadProgressContainer.style.display = 'none';
+          return;
+        }
+
+        supaUploadStatusText.textContent = `Found ${codesArray.length.toLocaleString()} unique Product IDs. Uploading to Supabase...`;
+        
+        // Batch Upsert in Chunks of 500
+        const chunkSize = 500;
+        const totalChunks = Math.ceil(codesArray.length / chunkSize);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const chunk = codesArray.slice(i * chunkSize, (i + 1) * chunkSize).map(pID => ({
+            product_id: pID
+          }));
+
+          const { error } = await supabaseClient
+            .from('master_products')
+            .upsert(chunk, { onConflict: 'product_id' });
+
+          if (error) console.warn('Chunk upload notice:', error.message);
+
+          const pct = Math.round(((i + 1) / totalChunks) * 100);
+          supaUploadProgressBar.style.width = pct + '%';
+          supaUploadStatusText.textContent = `Uploading chunk ${i + 1} of ${totalChunks} (${pct}%)...`;
+        }
+
+        supaUploadStatusText.textContent = `Successfully imported ${codesArray.length.toLocaleString()} products to Supabase!`;
+        setTimeout(() => { supaUploadProgressContainer.style.display = 'none'; }, 2000);
+
+        await syncWithSupabase();
+      } catch (err) {
+        showAlert(`Bulk upload error: ${err.message}`);
+        supaUploadProgressContainer.style.display = 'none';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // --- SINGLE PRODUCT ADD & DELETE ---
+  if (btnSingleAddProduct) {
+    btnSingleAddProduct.addEventListener('click', async () => {
+      const rawVal = inputSingleProductID.value.trim();
+      if (!rawVal) return;
+
+      const cleanVal = rawVal.replace(/[\u00A0\s]+/g, '').toUpperCase();
+      if (!cleanVal) return;
+
+      if (!supabaseClient) {
+        masterProductSet.add(cleanVal);
+        supabaseProductsList.unshift({ id: Date.now(), product_id: cleanVal, created_at: new Date().toISOString() });
+        inputSingleProductID.value = '';
+        renderMasterProductTable();
+        return;
+      }
+
+      try {
+        btnSingleAddProduct.disabled = true;
+        btnSingleAddProduct.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Adding...`;
+
+        const { error } = await supabaseClient
+          .from('master_products')
+          .upsert([{ product_id: cleanVal }], { onConflict: 'product_id' });
+
+        if (error) throw error;
+
+        inputSingleProductID.value = '';
+        btnSingleAddProduct.disabled = false;
+        btnSingleAddProduct.innerHTML = `<i class="fa-solid fa-plus"></i> Add Product ID to Database`;
+
+        await syncWithSupabase();
+      } catch (err) {
+        showAlert(`Failed to add product: ${err.message}`);
+        btnSingleAddProduct.disabled = false;
+        btnSingleAddProduct.innerHTML = `<i class="fa-solid fa-plus"></i> Add Product ID to Database`;
+      }
+    });
+  }
+
+  async function deleteSingleSupabaseProduct(pID) {
+    if (!confirm(`Are you sure you want to delete Product ID '${pID}' from Supabase?`)) return;
+
+    if (!supabaseClient) {
+      masterProductSet.delete(pID);
+      supabaseProductsList = supabaseProductsList.filter(item => item.product_id !== pID);
+      renderMasterProductTable();
+      return;
+    }
+
+    try {
+      const { error } = await supabaseClient
+        .from('master_products')
+        .delete()
+        .eq('product_id', pID);
+
+      if (error) throw error;
+
+      await syncWithSupabase();
+    } catch (err) {
+      showAlert(`Failed to delete product: ${err.message}`);
+    }
+  }
 
   // --- DUAL FILE UPLOAD EVENT LISTENERS ---
   cutlistDropzone.addEventListener('click', () => cutlistInput.click());
@@ -146,9 +493,9 @@ document.addEventListener('DOMContentLoaded', () => {
     checkReadyState();
   }
 
-  // Strictly require BOTH cutlistFile AND masterProductFile to be selected
   function checkReadyState() {
-    if (cutlistFile && masterProductFile) {
+    // Require Cutlist File and EITHER Supabase loaded products OR uploaded product file
+    if (cutlistFile && (masterProductFile || masterProductSet.size > 0)) {
       btnProcessData.disabled = false;
     } else {
       btnProcessData.disabled = true;
@@ -166,14 +513,14 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runSamplePreset(cutlistFileName) {
     hideAlert();
     try {
-      // 1. Fetch Existing Product List sample
-      let prodResp = await fetch(encodeURI('TG/Products (53) 01.09 - 26.09.xlsx'));
-      if (!prodResp.ok) prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
-      if (!prodResp.ok) throw new Error('Fetch master product failed');
-      const prodBuf = await prodResp.arrayBuffer();
-      parseMasterProductListArrayBuffer(prodBuf);
+      if (masterProductSet.size === 0) {
+        let prodResp = await fetch(encodeURI('TG/Products (53) 01.09 - 26.09.xlsx'));
+        if (!prodResp.ok) prodResp = await fetch(encodeURI('../TG/Products (53) 01.09 - 26.09.xlsx'));
+        if (!prodResp.ok) throw new Error('Fetch master product failed');
+        const prodBuf = await prodResp.arrayBuffer();
+        parseMasterProductListArrayBuffer(prodBuf);
+      }
 
-      // 2. Fetch Cutlist File
       let cutResp = await fetch(encodeURI(`TG/${cutlistFileName}`));
       if (!cutResp.ok) cutResp = await fetch(encodeURI(`../TG/${cutlistFileName}`));
       if (!cutResp.ok) throw new Error('Fetch cutlist failed');
@@ -197,41 +544,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- PROCESS DATA BUTTON CLICK ---
   btnProcessData.addEventListener('click', async () => {
-    if (!cutlistFile || !masterProductFile) return;
+    if (!cutlistFile) return;
 
-    // Parse user-selected Existing Product List file
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        parseMasterProductListArrayBuffer(data);
-        startCutlistProcessing();
-      } catch (err) {
-        showAlert(`Failed to parse Existing Product List file.`);
-      }
-    };
-    reader.readAsArrayBuffer(masterProductFile);
+    if (masterProductFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          parseMasterProductListArrayBuffer(data);
+          startCutlistProcessing();
+        } catch (err) {
+          showAlert(`Failed to parse Existing Product List file.`);
+        }
+      };
+      reader.readAsArrayBuffer(masterProductFile);
+    } else {
+      startCutlistProcessing();
+    }
   });
 
   function parseMasterProductListArrayBuffer(arrayBuffer) {
-    masterProductSet.clear();
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-    
-    // Parse ALL sheets in Existing Product List workbook
     workbook.SheetNames.forEach(sheetName => {
       const sheet = workbook.Sheets[sheetName];
       const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
       if (!jsonRows || jsonRows.length === 0) return;
 
       for (let r = 0; r < jsonRows.length; r++) {
         const row = jsonRows[r];
         if (!row) continue;
-
         for (let c = 0; c < row.length; c++) {
           let rawVal = String(row[c] || '').trim();
           if (!rawVal) continue;
-
           let cleanVal = rawVal.replace(/[\u00A0\s]+/g, '').toUpperCase();
           if (cleanVal && cleanVal !== 'PRODUCT' && cleanVal !== 'PRODUCTID' && !cleanVal.includes('SUMMARY')) {
             masterProductSet.add(cleanVal);
@@ -413,7 +757,6 @@ document.addEventListener('DOMContentLoaded', () => {
     matchingLogElements = [];
     currentMatchIdx = -1;
 
-    // Reset 4 Collections
     collectionTotal = [];
     collectionDups = [];
     collectionExisting = [];
@@ -426,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addLog(`Existing Product List contains ${masterProductSet.size.toLocaleString()} existing products for comparison.`, 'info');
   }
 
-  // --- EXCEL PROCESSING PIPELINE WITH SMART HEADER & COMBINED CELL PARSER ---
+  // --- EXCEL PROCESSING PIPELINE ---
   function processExcelRows(rawRows, fileName) {
     if (!validateColumnsAndContent(rawRows)) {
       showAlert(`<strong>Validation Failed:</strong> Uploaded file '<em>${fileName}</em>' does not match expected Product Cutlist / Truss dataset.`);
@@ -438,36 +781,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const validRows = rawRows.filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
     const totalCount = validRows.length;
 
-    // Detect Header Row and Column Index Mapping
     let colMap = { truss: -1, id: -1, member: -1, length: -1, qty: -1, truss_id: -1 };
     let headerRowIdx = -1;
 
     for (let r = 0; r < Math.min(10, validRows.length); r++) {
       const row = validRows[r];
       let hasHeaderMatch = false;
-
       for (let c = 0; c < row.length; c++) {
         const hStr = String(row[c] || '').trim().toLowerCase();
         if (!hStr) continue;
-
-        if (hStr.includes('truss') && hStr.includes('id')) {
-          colMap.truss_id = c; hasHeaderMatch = true;
-        } else if (hStr === 'truss') {
-          colMap.truss = c; hasHeaderMatch = true;
-        } else if (hStr === 'id' || hStr === 'truss id') {
-          colMap.id = c; hasHeaderMatch = true;
-        } else if (hStr === 'member' || hStr === 'member code' || hStr === 'material') {
-          colMap.member = c; hasHeaderMatch = true;
-        } else if (hStr === 'length' || hStr === 'len') {
-          colMap.length = c; hasHeaderMatch = true;
-        } else if (hStr === 'qty' || hStr === 'quantity') {
-          colMap.qty = c; hasHeaderMatch = true;
-        }
+        if (hStr.includes('truss') && hStr.includes('id')) { colMap.truss_id = c; hasHeaderMatch = true; }
+        else if (hStr === 'truss') { colMap.truss = c; hasHeaderMatch = true; }
+        else if (hStr === 'id' || hStr === 'truss id') { colMap.id = c; hasHeaderMatch = true; }
+        else if (hStr === 'member' || hStr === 'member code' || hStr === 'material') { colMap.member = c; hasHeaderMatch = true; }
+        else if (hStr === 'length' || hStr === 'len') { colMap.length = c; hasHeaderMatch = true; }
+        else if (hStr === 'qty' || hStr === 'quantity') { colMap.qty = c; hasHeaderMatch = true; }
       }
-
       if (hasHeaderMatch && (colMap.member !== -1 || colMap.length !== -1)) {
-        headerRowIdx = r;
-        break;
+        headerRowIdx = r; break;
       }
     }
 
@@ -483,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const end = Math.min(index + batchSize, totalCount);
 
       for (; index < end; index++) {
-        if (index === headerRowIdx) continue; // Skip header row
+        if (index === headerRowIdx) continue;
 
         const row = validRows[index];
         const nonBlankCells = row.filter(c => String(c || '').trim() !== '');
@@ -491,7 +822,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rowStr = nonBlankCells.map(c => String(c || '').trim().toLowerCase()).join(' ');
 
-        // Ignore Document Metadata Header Info Rows
         if (
           rowStr.includes('truss material report') ||
           rowStr.includes('company name') ||
@@ -503,7 +833,6 @@ document.addEventListener('DOMContentLoaded', () => {
           continue;
         }
 
-        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them permanently
         if (
           rowStr.includes('materials summary') ||
           rowStr.includes('parts summary') ||
@@ -528,45 +857,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let truss = '', idVal = '', memberCode = '', qty = '1', length = '0';
 
-        // Extraction via Header Column Mapping
-        if (colMap.member !== -1 && colMap.member < row.length) {
-          memberCode = String(row[colMap.member] || '').trim();
-        }
-        if (colMap.length !== -1 && colMap.length < row.length) {
-          length = String(row[colMap.length] || '').trim();
-        }
-        if (colMap.qty !== -1 && colMap.qty < row.length) {
-          qty = String(row[colMap.qty] || '').trim();
-        }
+        if (colMap.member !== -1 && colMap.member < row.length) memberCode = String(row[colMap.member] || '').trim();
+        if (colMap.length !== -1 && colMap.length < row.length) length = String(row[colMap.length] || '').trim();
+        if (colMap.qty !== -1 && colMap.qty < row.length) qty = String(row[colMap.qty] || '').trim();
         if (colMap.truss_id !== -1 && colMap.truss_id < row.length) {
           const combo = String(row[colMap.truss_id] || '').trim();
           const parts = combo.split(/\s+/);
           if (parts.length >= 2) { truss = parts[0]; idVal = parts[1]; }
           else if (parts.length === 1) { truss = parts[0]; idVal = parts[0]; }
         }
-        if (colMap.truss !== -1 && colMap.truss < row.length) {
-          truss = String(row[colMap.truss] || '').trim();
-        }
-        if (colMap.id !== -1 && colMap.id < row.length) {
-          idVal = String(row[colMap.id] || '').trim();
-        }
+        if (colMap.truss !== -1 && colMap.truss < row.length) truss = String(row[colMap.truss] || '').trim();
+        if (colMap.id !== -1 && colMap.id < row.length) idVal = String(row[colMap.id] || '').trim();
 
-        // Fallback search if header mapping missed memberCode
         if (!memberCode) {
           for (let c = 0; c < row.length; c++) {
             const val = String(row[c] || '').trim();
-            if (/^(MB|UB|CPLN|UC)\d+/i.test(val)) {
-              memberCode = val; break;
-            }
+            if (/^(MB|UB|CPLN|UC)\d+/i.test(val)) { memberCode = val; break; }
           }
         }
 
-        // Skip row if member code is invalid or header text
-        if (!memberCode || memberCode.toLowerCase() === 'member' || memberCode.toLowerCase().includes('summary')) {
-          continue;
-        }
+        if (!memberCode || memberCode.toLowerCase() === 'member' || memberCode.toLowerCase().includes('summary')) continue;
 
-        // Fallback length and qty extraction
         if (!length || length === '0') {
           const nums = row.map(c => String(c || '').trim()).filter(c => /^\d+$/.test(c));
           if (nums.length >= 2) {
@@ -574,20 +885,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (n1 > n2 && n1 > 50) { length = String(n1); if (!qty || qty === '1') qty = String(n2); }
             else if (n2 > n1 && n2 > 50) { length = String(n2); if (!qty || qty === '1') qty = String(n1); }
             else { if (!qty || qty === '1') qty = nums[0]; length = nums[1]; }
-          } else if (nums.length === 1) {
-            length = nums[0];
-          }
+          } else if (nums.length === 1) { length = nums[0]; }
         }
 
         if (length === '0') continue;
 
-        // Smart Combined Cell Splitting for Truss & ID (e.g. row[0] is "HN13 B1")
         if (row[0]) {
           const combo = String(row[0]).trim();
           const parts = combo.split(/\s+/);
           if (parts.length >= 2) {
-            truss = parts[0];
-            idVal = parts[1];
+            truss = parts[0]; idVal = parts[1];
           } else {
             truss = parts[0];
             if (!idVal || /^(MB|UB|CPLN|UC)\d+/i.test(idVal)) {
@@ -599,54 +906,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!truss) truss = 'N/A';
         if (!idVal || /^(MB|UB|CPLN|UC)\d+/i.test(idVal)) idVal = 'N/A';
 
-        // STEP 1: Rename Member Prefix ONLY for Product ID creation
         let productIDPrefixMember = memberCode;
-        if (memberCode.toUpperCase().startsWith('MB')) {
-          productIDPrefixMember = 'CPLN' + memberCode.substring(2);
-        } else if (memberCode.toUpperCase().startsWith('UB')) {
-          productIDPrefixMember = 'UC' + memberCode.substring(2);
-        }
+        if (memberCode.toUpperCase().startsWith('MB')) productIDPrefixMember = 'CPLN' + memberCode.substring(2);
+        else if (memberCode.toUpperCase().startsWith('UB')) productIDPrefixMember = 'UC' + memberCode.substring(2);
 
-        // STEP 2: Create Product ID = Renamed Prefix + 'X' + Length
         const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
         const unspacedProductID = productID.replace(/\s+/g, '');
 
-        const itemRecord = {
-          rowNum: index + 1,
-          truss,
-          idVal,
-          memberCode,
-          qty,
-          length,
-          productID,
-          status: 'Parsed'
-        };
-
-        // Add to Total Cutlist Rows Collection
+        const itemRecord = { rowNum: index + 1, truss, idVal, memberCode, qty, length, productID, status: 'Parsed' };
         collectionTotal.push(itemRecord);
 
-        // STEP 3: Deduplicate Product IDs
         if (seenProductIDs.has(unspacedProductID)) {
           dupsCount++;
-          const dupRecord = { ...itemRecord, status: 'Duplicate Removed' };
-          collectionDups.push(dupRecord);
+          collectionDups.push({ ...itemRecord, status: 'Duplicate Removed' });
           addLog(`[DUP REMOVED] Row ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
           continue;
         }
         seenProductIDs.add(unspacedProductID);
 
-        // STEP 4: Compare Product ID against Existing Product List (checking unspaced format)
         if (masterProductSet.has(unspacedProductID)) {
           existingMatchRemovedCount++;
-          const existRecord = { ...itemRecord, status: 'Existing Product Filtered' };
-          collectionExisting.push(existRecord);
+          collectionExisting.push({ ...itemRecord, status: 'Existing Product Filtered' });
           addLog(`[EXISTING PRODUCT REMOVED] Row ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
         } else {
-          const retainedRecord = { ...itemRecord, status: 'New Product Retained' };
-          collectionRetained.push(retainedRecord);
+          collectionRetained.push({ ...itemRecord, status: 'New Product Retained' });
           addLog(`[NEW PRODUCT RETAINED] Row ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
-          const record = [truss, idVal, memberCode, qty, length, productID];
-          newProductOutput.push(record);
+          newProductOutput.push([truss, idVal, memberCode, qty, length, productID]);
         }
       }
 
@@ -668,7 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
     step();
   }
 
-  // --- TEXT CUTLIST PROCESSING PIPELINE WITH SUMMARY SECTION & HEADER FILTERING ---
+  // --- TEXT CUTLIST PROCESSING PIPELINE ---
   function processTextContent(txt, fileName) {
     const lines = txt.split(/\r?\n/).filter(line => line.trim() !== '');
     if (!validateColumnsAndContent(lines)) {
@@ -698,7 +983,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lowerLine = trimmed.toLowerCase();
 
-        // Ignore Document Metadata Header Info Rows (Truss Material Report, Company Name, Job Number, etc.)
         if (
           lowerLine.includes('truss material report') ||
           lowerLine.includes('company name') ||
@@ -711,7 +995,6 @@ document.addEventListener('DOMContentLoaded', () => {
           continue;
         }
 
-        // Detect Summary Sections (Materials Summary, Parts Summary, etc.) and skip them permanently
         if (
           lowerLine.includes('materials summary') ||
           lowerLine.includes('parts summary') ||
@@ -735,35 +1018,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const tokens = trimmed.split(/\s+/);
-
         const memberTokenIdx = tokens.findIndex(t => /^(MB|UB|CPLN|UC)\d+/i.test(t));
         if (memberTokenIdx !== -1) {
           const memberCode = tokens[memberTokenIdx];
-          let truss = 'N/A';
-          let idVal = 'N/A';
+          let truss = 'N/A', idVal = 'N/A';
 
-          if (tokens.length >= 5) {
-            truss = tokens[0] || 'N/A';
-            idVal = tokens[1] || 'N/A';
-          } else if (memberTokenIdx === 2) {
-            truss = tokens[0] || 'N/A';
-            idVal = tokens[1] || 'N/A';
-          } else if (memberTokenIdx === 1) {
+          if (tokens.length >= 5) { truss = tokens[0] || 'N/A'; idVal = tokens[1] || 'N/A'; }
+          else if (memberTokenIdx === 2) { truss = tokens[0] || 'N/A'; idVal = tokens[1] || 'N/A'; }
+          else if (memberTokenIdx === 1) {
             const parts = tokens[0].split(/\s+/);
-            if (parts.length >= 2) {
-              truss = parts[0];
-              idVal = parts[1];
-            } else {
-              truss = tokens[0];
-              idVal = 'N/A';
-            }
-          } else if (memberTokenIdx > 2) {
-            truss = tokens[0] || 'N/A';
-            idVal = tokens[1] || 'N/A';
-          } else {
-            truss = tokens[0] || 'N/A';
-            idVal = tokens[1] || 'N/A';
-          }
+            if (parts.length >= 2) { truss = parts[0]; idVal = parts[1]; }
+            else { truss = tokens[0]; idVal = 'N/A'; }
+          } else { truss = tokens[0] || 'N/A'; idVal = tokens[1] || 'N/A'; }
 
           const nums = tokens.filter(t => /^\d+$/.test(t));
           let length = '0', qty = '1';
@@ -772,39 +1038,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (n1 > n2 && n1 > 50) { length = String(n1); qty = String(n2); }
             else if (n2 > n1 && n2 > 50) { length = String(n2); qty = String(n1); }
             else { qty = nums[0]; length = nums[1]; }
-          } else if (nums.length === 1) {
-            length = nums[0];
-          }
+          } else if (nums.length === 1) { length = nums[0]; }
 
           if (length === '0') continue;
 
           let productIDPrefixMember = memberCode;
-          if (memberCode.toUpperCase().startsWith('MB')) {
-            productIDPrefixMember = 'CPLN' + memberCode.substring(2);
-          } else if (memberCode.toUpperCase().startsWith('UB')) {
-            productIDPrefixMember = 'UC' + memberCode.substring(2);
-          }
+          if (memberCode.toUpperCase().startsWith('MB')) productIDPrefixMember = 'CPLN' + memberCode.substring(2);
+          else if (memberCode.toUpperCase().startsWith('UB')) productIDPrefixMember = 'UC' + memberCode.substring(2);
 
           const productID = `${productIDPrefixMember}X${length}`.toUpperCase();
           const unspacedProductID = productID.replace(/\s+/g, '');
 
-          const itemRecord = {
-            rowNum: index + 1,
-            truss,
-            idVal,
-            memberCode,
-            qty,
-            length,
-            productID,
-            status: 'Parsed'
-          };
-
+          const itemRecord = { rowNum: index + 1, truss, idVal, memberCode, qty, length, productID, status: 'Parsed' };
           collectionTotal.push(itemRecord);
 
           if (seenProductIDs.has(unspacedProductID)) {
             dupsCount++;
-            const dupRecord = { ...itemRecord, status: 'Duplicate Removed' };
-            collectionDups.push(dupRecord);
+            collectionDups.push({ ...itemRecord, status: 'Duplicate Removed' });
             addLog(`[DUP REMOVED] Line ${index + 1}: Duplicate Product ID '${productID}' removed.`, 'dup');
             continue;
           }
@@ -812,15 +1062,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (masterProductSet.has(unspacedProductID)) {
             existingMatchRemovedCount++;
-            const existRecord = { ...itemRecord, status: 'Existing Product Filtered' };
-            collectionExisting.push(existRecord);
+            collectionExisting.push({ ...itemRecord, status: 'Existing Product Filtered' });
             addLog(`[EXISTING PRODUCT REMOVED] Line ${index + 1}: Product ID '${productID}' already exists in Existing Product List. Omitted.`, 'convert');
           } else {
-            const retainedRecord = { ...itemRecord, status: 'New Product Retained' };
-            collectionRetained.push(retainedRecord);
+            collectionRetained.push({ ...itemRecord, status: 'New Product Retained' });
             addLog(`[NEW PRODUCT RETAINED] Line ${index + 1}: Product ID '${productID}' added to New Product List.`, 'newprod');
-            const record = [truss, idVal, memberCode, qty, length, productID];
-            cleanRecords.push(record);
+            cleanRecords.push([truss, idVal, memberCode, qty, length, productID]);
           }
         }
       }
@@ -845,12 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function finalizeProcessing(cleanOutput, totalInput, dupsCount, existingRemovedCount) {
     processedData = cleanOutput;
-    summaryStats = {
-      total: totalInput,
-      dups: dupsCount,
-      existingRemoved: existingRemovedCount,
-      clean: cleanOutput.length
-    };
+    summaryStats = { total: totalInput, dups: dupsCount, existingRemoved: existingRemovedCount, clean: cleanOutput.length };
     renderSummaryMetrics();
   }
 
@@ -900,29 +1142,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- CLICKABLE METRIC CARDS & DETAIL TABLE MODAL HANDLERS ---
-  if (cardTotalRows) {
-    cardTotalRows.addEventListener('click', () => {
-      openDetailModal(collectionTotal, 'Total Cutlist Rows (Parsed)', 'total');
-    });
-  }
-
-  if (cardDupsRemoved) {
-    cardDupsRemoved.addEventListener('click', () => {
-      openDetailModal(collectionDups, 'Duplicates Removed', 'dup');
-    });
-  }
-
-  if (cardExistingRemoved) {
-    cardExistingRemoved.addEventListener('click', () => {
-      openDetailModal(collectionExisting, 'Existing Products Filtered Out', 'existing');
-    });
-  }
-
-  if (cardCleanRows) {
-    cardCleanRows.addEventListener('click', () => {
-      openDetailModal(collectionRetained, 'New Products Retained', 'retained');
-    });
-  }
+  if (cardTotalRows) cardTotalRows.addEventListener('click', () => openDetailModal(collectionTotal, 'Total Cutlist Rows (Parsed)', 'total'));
+  if (cardDupsRemoved) cardDupsRemoved.addEventListener('click', () => openDetailModal(collectionDups, 'Duplicates Removed', 'dup'));
+  if (cardExistingRemoved) cardExistingRemoved.addEventListener('click', () => openDetailModal(collectionExisting, 'Existing Products Filtered Out', 'existing'));
+  if (cardCleanRows) cardCleanRows.addEventListener('click', () => openDetailModal(collectionRetained, 'New Products Retained', 'retained'));
 
   function openDetailModal(records, categoryTitle, badgeClass) {
     activeDetailCollection = records;
@@ -948,7 +1171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     detailRecordCount.textContent = `Showing ${filtered.length.toLocaleString()} of ${activeDetailCollection.length.toLocaleString()} records`;
-
     detailTableBody.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -963,7 +1185,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Limit initial DOM renders for extreme performance if large set
     const displayLimit = Math.min(filtered.length, 1000);
     const fragment = document.createDocumentFragment();
 
@@ -986,10 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     detailTableBody.appendChild(fragment);
   }
 
-  if (detailTableSearch) {
-    detailTableSearch.addEventListener('input', renderDetailTable);
-  }
-
+  if (detailTableSearch) detailTableSearch.addEventListener('input', renderDetailTable);
   if (btnDetailSearchClear) {
     btnDetailSearchClear.addEventListener('click', () => {
       if (detailTableSearch) detailTableSearch.value = '';
@@ -998,13 +1216,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- DOWNLOAD GENERATORS (Exported as 'New Product List') ---
+  // --- DOWNLOAD GENERATORS ---
   btnDownloadXlsx.addEventListener('click', () => {
     if (processedData.length === 0 || btnDownloadXlsx.disabled) return;
     const exportData = [STANDARD_HEADERS, ...processedData];
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     ws['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 22 }];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'New Product List');
     XLSX.writeFile(wb, 'New Product List.xlsx');
@@ -1015,7 +1232,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportData = [STANDARD_HEADERS, ...processedData];
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     const csvContent = XLSX.utils.sheet_to_csv(ws);
-    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -1025,20 +1241,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(link);
   });
 
-  // Dynamic 100% Inline Column Alignment for Text (.txt) Exports
   btnDownloadTxt.addEventListener('click', () => {
     if (processedData.length === 0 || btnDownloadTxt.disabled) return;
     const exportData = [STANDARD_HEADERS, ...processedData];
-    
-    // Calculate max width for each column dynamically across headers + data
-    const colWidths = STANDARD_HEADERS.map((h, i) => {
-      return Math.max(h.length, ...processedData.map(r => String(r[i] || '').length));
-    });
-
-    const txtLines = exportData.map(row => {
-      return row.map((cell, idx) => String(cell || '').padEnd(colWidths[idx] + 3)).join('').trimEnd();
-    });
-
+    const colWidths = STANDARD_HEADERS.map((h, i) => Math.max(h.length, ...processedData.map(r => String(r[i] || '').length)));
+    const txtLines = exportData.map(row => row.map((cell, idx) => String(cell || '').padEnd(colWidths[idx] + 3)).join('').trimEnd());
     const txtContent = txtLines.join('\n');
     const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
@@ -1057,9 +1264,12 @@ document.addEventListener('DOMContentLoaded', () => {
     cutlistInput.value = '';
     productInput.value = '';
     cutlistFileStatus.innerHTML = '';
-    productFileStatus.innerHTML = '';
+    if (masterProductSet.size > 0) {
+      productFileStatus.innerHTML = `<i class="fa-solid fa-cloud-check" style="color: var(--success);"></i> Auto-loaded ${masterProductSet.size.toLocaleString()} products from Supabase`;
+    } else {
+      productFileStatus.innerHTML = '';
+    }
     cutlistDropzone.classList.remove('loaded');
-    productDropzone.classList.remove('loaded');
     btnProcessData.disabled = true;
     hideAlert();
   });

@@ -4,16 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Product Data Refinement | Teck Guan Group</title>
-  <meta name="description" content="Automated dataset cleaning, duplicate Product ID removal, and new product identification for Teck Guan Group.">
+  <meta name="description" content="Automated dataset cleaning, duplicate Product ID removal, and cloud Master Product List management for Teck Guan Group.">
   <!-- Favicon Logo -->
   <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="shortcut icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="apple-touch-icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
-  <link rel="stylesheet" href="styles.css?v=1.1.1">
-  <!-- FontAwesome Icons & SheetJS Library -->
+  <link rel="stylesheet" href="styles.css?v=1.2.0">
+  <!-- FontAwesome Icons, SheetJS & Supabase JS SDK -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js?v=1.1.1" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js?v=1.2.0" defer></script>
 </head>
 <body data-theme="light">
 
@@ -27,120 +28,261 @@
         <span>PRODUCT DATA REFINEMENT</span>
       </div>
     </div>
-  </nav>
 
-  <!-- Main Workspace -->
-  <main class="main-container">
-
-    <!-- Data Format & Processing Guidelines -->
-    <section class="glass-card">
-      <div class="info-grid" style="grid-template-columns: 1fr;">
-        <!-- Box 1: What processes will be done -->
-        <div class="info-box">
-          <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
-          <ul>
-            <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
-            <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
-            <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against the uploaded Existing Product List. If a product already exists, it is filtered out—retaining only **New Products** in the final output file: <span class="code-inline">New Product List.xlsx</span>.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Dual Upload Section -->
-    <section class="glass-card">
-      <div class="card-title">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
-        Upload Required Input Files
-      </div>
-
-      <div class="dual-upload-grid">
-
-        <!-- Upload 1: Cutlist File -->
-        <div class="upload-card" id="cutlistDropzone">
-          <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
-          <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
-          <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
-
-          <!-- Format Preview Helper Badge -->
-          <div class="format-preview-pill">
-            <i class="fa-solid fa-table-columns"></i>
-            <span>Expected Columns: <strong>Truss</strong> | <strong>ID</strong> | <strong>Member</strong> | <strong>Qty</strong> | <strong>Length</strong></span>
-          </div>
-
-          <div id="cutlistFileStatus" class="file-status-text"></div>
-          <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
-            <i class="fa-solid fa-folder-open"></i> Select Cutlist File
-          </button>
-        </div>
-
-        <!-- Upload 2: Existing Product List File -->
-        <div class="upload-card" id="productDropzone">
-          <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
-          <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
-          <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
-
-          <!-- Format Preview Helper Badge -->
-          <div class="format-preview-pill success">
-            <i class="fa-solid fa-list-check"></i>
-            <span>Expected Format: <strong>Product</strong> column (e.g. <span class="code-inline">CPLN10010X9750</span>)</span>
-          </div>
-
-          <div id="productFileStatus" class="file-status-text"></div>
-          <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
-            <i class="fa-solid fa-folder-open"></i> Select Existing Product List
-          </button>
-        </div>
-
-      </div>
-
-      <!-- Action Button to Start Process -->
-      <div style="text-align: center; margin-top: 1.5rem;">
-        <button id="btnProcessData" class="btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.05rem;" disabled>
-          <i class="fa-solid fa-gears"></i> Process & Generate New Product List
+    <!-- Workspace Navigation Tabs & Supabase Connection Badge -->
+    <div class="nav-tabs-container">
+      <div class="nav-tabs">
+        <button class="nav-tab active" id="tabCutlist">
+          <i class="fa-solid fa-gears"></i> Cutlist Refinement
+        </button>
+        <button class="nav-tab" id="tabMasterProduct">
+          <i class="fa-solid fa-boxes-stacked"></i> Master Product List
         </button>
       </div>
 
-      <!-- User Instruction Note between Upload & Sample Files -->
-      <div class="sample-note-banner">
-        <i class="fa-solid fa-lightbulb"></i>
-        <span><strong>Note:</strong> You can upload your custom Cutlist & Existing Product List files above, or click any sample file preset below to auto-load sample files and test immediately.</span>
+      <div class="supabase-status-badge connected" id="supaStatusBadge">
+        <i class="fa-solid fa-cloud-check"></i>
+        <span>Supabase: <strong id="supaHeaderCount">Connecting...</strong></span>
       </div>
+    </div>
+  </nav>
 
-      <!-- Quick Preset Sample Testing & Direct Downloads -->
-      <div class="sample-presets">
-        <!-- Sample 1: Excel Cutlist + Existing Products -->
-        <div class="sample-item-group">
-          <button id="sampleExcelBtn" class="btn-secondary">
-            <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
-          </button>
-          <a href="TG/working sheet.xlsx" download="working sheet.xlsx" class="btn-download-sample" title="Download sample cutlist">
-            <i class="fa-solid fa-download"></i> Cutlist .xlsx
-          </a>
-          <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Existing Product List">
-            <i class="fa-solid fa-download"></i> Existing Product List
-          </a>
+  <!-- Main Workspace Container -->
+  <main class="main-container">
+
+    <!-- ==================== TAB 1: CUTLIST REFINEMENT WORKSPACE ==================== -->
+    <div id="viewCutlist" class="tab-view active">
+      
+      <!-- Data Format & Processing Guidelines -->
+      <section class="glass-card">
+        <div class="info-grid" style="grid-template-columns: 1fr;">
+          <div class="info-box">
+            <h3><i class="fa-solid fa-gears"></i> Refinement Operations</h3>
+            <ul>
+              <li><strong>1. Create Product ID Column:</strong> Renames Member prefix (<span class="code-inline">MB</span> &rarr; <span class="code-inline">CPLN</span>, <span class="code-inline">UB</span> &rarr; <span class="code-inline">UC</span>) and combines with <span class="code-inline">'X' + Length</span> (e.g. <span class="code-inline">CPLN10010X280</span>).</li>
+              <li><strong>2. Remove Duplicate Product IDs:</strong> Finds and removes duplicate <span class="code-inline">Product ID</span> entries.</li>
+              <li><strong>3. Compare with Existing Product List:</strong> Compares Product IDs against Supabase Cloud Database (or uploaded Existing Product List). Retains only **New Products** in the output file: <span class="code-inline">New Product List.xlsx</span>.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dual Upload Section -->
+      <section class="glass-card">
+        <div class="card-title">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          Upload Required Input Files
         </div>
 
-        <!-- Sample 2: Text Cutlist + Existing Products -->
-        <div class="sample-item-group">
-          <button id="sampleTxtBtn" class="btn-secondary">
-            <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cutlist.txt' + 'Products (53)'
-          </button>
-          <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download sample text cutlist">
-            <i class="fa-solid fa-download"></i> Cutlist .txt
-          </a>
+        <div class="dual-upload-grid">
+
+          <!-- Upload 1: Cutlist File -->
+          <div class="upload-card" id="cutlistDropzone">
+            <input type="file" id="cutlistInput" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+            <div class="upload-icon"><i class="fa-solid fa-file-invoice"></i></div>
+            <div class="upload-sub">Supports .xlsx, .csv, .txt</div>
+
+            <!-- Format Preview Helper Badge -->
+            <div class="format-preview-pill">
+              <i class="fa-solid fa-table-columns"></i>
+              <span>Expected Columns: <strong>Truss</strong> | <strong>ID</strong> | <strong>Member</strong> | <strong>Qty</strong> | <strong>Length</strong></span>
+            </div>
+
+            <div id="cutlistFileStatus" class="file-status-text"></div>
+            <button type="button" class="btn-primary" style="margin-top: 0.85rem;" id="cutlistBtn">
+              <i class="fa-solid fa-folder-open"></i> Select Cutlist File
+            </button>
+          </div>
+
+          <!-- Upload 2: Existing Product List File (Auto-filled from Supabase if connected) -->
+          <div class="upload-card" id="productDropzone">
+            <input type="file" id="productInput" accept=".xlsx,.xls,.csv" style="display: none;">
+            <div class="upload-icon" style="color: var(--success);"><i class="fa-solid fa-boxes-stacked"></i></div>
+            <div class="upload-sub" id="productUploadSub">Supports .xlsx, .xls, .csv</div>
+
+            <!-- Format Preview Helper Badge -->
+            <div class="format-preview-pill success">
+              <i class="fa-solid fa-list-check"></i>
+              <span>Expected Format: <strong>Product</strong> column (e.g. <span class="code-inline">CPLN10010X9750</span>)</span>
+            </div>
+
+            <div id="productFileStatus" class="file-status-text"></div>
+            <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="productBtn">
+              <i class="fa-solid fa-folder-open"></i> Select Existing Product List
+            </button>
+          </div>
+
         </div>
+
+        <!-- Action Button to Start Process -->
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <button id="btnProcessData" class="btn-primary" style="padding: 0.9rem 2.5rem; font-size: 1.05rem;" disabled>
+            <i class="fa-solid fa-gears"></i> Process & Generate New Product List
+          </button>
+        </div>
+
+        <!-- User Instruction Note between Upload & Sample Files -->
+        <div class="sample-note-banner">
+          <i class="fa-solid fa-lightbulb"></i>
+          <span><strong>Note:</strong> You can upload custom Cutlist & Existing Product List files above, or click any sample preset below to auto-load sample files and test immediately.</span>
+        </div>
+
+        <!-- Quick Preset Sample Testing & Direct Downloads -->
+        <div class="sample-presets">
+          <div class="sample-item-group">
+            <button id="sampleExcelBtn" class="btn-secondary">
+              <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Test 'working sheet' + 'Products (53)'
+            </button>
+            <a href="TG/working sheet.xlsx" download="working sheet.xlsx" class="btn-download-sample" title="Download sample cutlist">
+              <i class="fa-solid fa-download"></i> Cutlist .xlsx
+            </a>
+            <a href="TG/Products (53) 01.09 - 26.09.xlsx" download="Products (53) 01.09 - 26.09.xlsx" class="btn-download-sample" title="Download Existing Product List">
+              <i class="fa-solid fa-download"></i> Existing Product List
+            </a>
+          </div>
+
+          <div class="sample-item-group">
+            <button id="sampleTxtBtn" class="btn-secondary">
+              <i class="fa-solid fa-file-lines" style="color: #00d2ff;"></i> Test 'Truss Cutlist.txt' + 'Products (53)'
+            </button>
+            <a href="TG/T-2674-Blok Akademik 3-00 Truss Cutlist.txt" download="T-2674-Blok Akademik 3-00 Truss Cutlist.txt" class="btn-download-sample" title="Download sample text cutlist">
+              <i class="fa-solid fa-download"></i> Cutlist .txt
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== TAB 2: MASTER PRODUCT LIST WORKSPACE ==================== -->
+    <div id="viewMasterProduct" class="tab-view">
+      
+      <!-- Top Section: Bulk Upload & Manual Add -->
+      <div class="master-header-grid">
+        
+        <!-- Box A: Supabase Bulk Upload Card -->
+        <div class="glass-card" style="margin-bottom: 0;">
+          <div class="card-title" style="margin-bottom: 0.75rem;">
+            <i class="fa-solid fa-cloud-arrow-up" style="color: var(--success);"></i>
+            Upload File to Supabase Cloud Database
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Select or drag & drop an Excel/CSV file containing your Master Product IDs (e.g. <span class="code-inline">Products (53).xlsx</span>). All unique Product IDs will be uploaded to Supabase.
+          </p>
+
+          <div class="upload-card" id="supaBulkDropzone" style="padding: 1.25rem;">
+            <input type="file" id="supaBulkInput" accept=".xlsx,.xls,.csv" style="display: none;">
+            <div class="upload-icon" style="color: var(--success); font-size: 2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
+            <div class="upload-sub">Supports .xlsx, .xls, .csv</div>
+
+            <!-- Upload Progress Bar -->
+            <div id="supaUploadProgressContainer" style="display: none; width: 100%; margin-top: 0.85rem;">
+              <div class="progress-bar-bg" style="height: 10px;">
+                <div id="supaUploadProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+              </div>
+              <div id="supaUploadStatusText" style="font-size: 0.8rem; color: var(--primary); margin-top: 0.4rem; text-align: center;">Uploading...</div>
+            </div>
+
+            <button type="button" class="btn-primary" style="margin-top: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" id="supaBulkBtn">
+              <i class="fa-solid fa-upload"></i> Upload & Import to Supabase
+            </button>
+          </div>
+        </div>
+
+        <!-- Box B: Add Single Product Card -->
+        <div class="glass-card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div class="card-title" style="margin-bottom: 0.75rem;">
+              <i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i>
+              Add Single Product ID
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+              Manually insert a single new Product ID into your Supabase Master Product List.
+            </p>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.4rem;">Product ID Code:</label>
+              <input type="text" id="inputSingleProductID" placeholder="e.g. CPLN10010X9750" class="custom-input">
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary" id="btnSingleAddProduct" style="width: 100%; padding: 0.8rem;">
+            <i class="fa-solid fa-plus"></i> Add Product ID to Database
+          </button>
+        </div>
+
       </div>
-    </section>
+
+      <!-- Bottom Section: Live Supabase Master Product Data Table -->
+      <section class="glass-card" style="margin-top: 1.5rem;">
+        <div class="master-table-controls">
+          <div class="card-title" style="margin-bottom: 0; white-space: nowrap;">
+            <i class="fa-solid fa-table-list" style="color: var(--primary);"></i>
+            Master Product Catalog
+          </div>
+
+          <!-- Table Search Box & Controls -->
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
+            <div class="terminal-search-box" style="max-width: 380px; flex: 1;">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="supaTableSearch" placeholder="Search product code (e.g. CPLN10010X9750)...">
+              <button id="btnSupaSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <button id="btnRefreshSupaTable" class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.85rem;" title="Refresh data from Supabase">
+              <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+
+            <span id="supaTableCountBadge" class="match-count-badge" style="font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md);">
+              Showing 0 products
+            </span>
+          </div>
+        </div>
+
+        <!-- Master Product Data Table -->
+        <div class="detail-table-wrapper" style="max-height: 520px; margin-top: 1rem;">
+          <table class="detail-table" id="supaMasterTable">
+            <thead>
+              <tr>
+                <th style="width: 70px;">#</th>
+                <th>Product ID</th>
+                <th>Created Date</th>
+                <th style="width: 100px; text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="supaMasterTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-bar">
+          <div style="font-size: 0.825rem; color: var(--text-muted);">
+            Page <strong id="supaPageCurrent">1</strong> of <strong id="supaPageTotal">1</strong>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button id="btnSupaPrevPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
+              <i class="fa-solid fa-chevron-left"></i> Previous
+            </button>
+            <button id="btnSupaNextPage" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" disabled>
+              Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
 
   </main>
 
-  <!-- POP-UP MODAL (Handles Progress during processing, and BOTH Progress + Refinement Summary once completed) -->
+  <!-- POP-UP REFINEMENT MODAL -->
   <div id="refinementModal" class="modal-overlay">
     <div class="modal-card">
-      
-      <!-- Modal Dynamic Header -->
       <div class="modal-header">
         <h2 id="modalTitle">
           <i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary);"></i>
@@ -154,16 +296,12 @@
         </div>
       </div>
 
-      <!-- Modal Body -->
       <div class="modal-body">
-
-        <!-- PART 1: Processing Progress & Live Terminal Log with Up/Down Search Nav & Clear Button -->
         <section id="modalProcessingSection" class="modal-section">
           <div class="progress-bar-bg">
             <div id="progressBarFill" class="progress-bar-fill"></div>
           </div>
 
-          <!-- Log Title & Search Bar with Navigation & Clear Button -->
           <div class="terminal-header-bar">
             <div class="card-title" style="font-size: 0.925rem; margin-bottom: 0; color: var(--text-muted);">
               <i class="fa-solid fa-terminal" style="color: var(--primary);"></i> Live Refinement Terminal Log
@@ -172,13 +310,9 @@
             <div class="terminal-search-box">
               <i class="fa-solid fa-magnifying-glass search-icon"></i>
               <input type="text" id="terminalSearch" placeholder="Search log text (e.g. CPLN10010X280, DUP, MATCH)...">
-              
-              <!-- Clear Search Input Button -->
               <button id="btnSearchClear" class="search-clear-btn" title="Clear search input" style="display: none;">
                 <i class="fa-solid fa-xmark"></i>
               </button>
-
-              <!-- Up & Down Result Navigation Buttons -->
               <div class="search-nav-controls">
                 <span id="logMatchCounter" class="match-count-badge">0 / 0</span>
                 <button id="btnSearchPrev" class="search-nav-btn" title="Previous Result (Up / Shift+Enter)">
@@ -194,14 +328,13 @@
           <div id="terminalLog" class="terminal-window"></div>
         </section>
 
-        <!-- PART 2: Refinement Summary & Download (Visible once completed) -->
+        <!-- Refinement Summary -->
         <section id="modalSummarySection" class="modal-section summary-section" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--bg-card-border);">
           <div class="card-title" style="margin-bottom: 1.25rem;">
             <i class="fa-solid fa-chart-pie" style="color: var(--success);"></i>
             Refinement Summary & Download 'New Product List'
           </div>
 
-          <!-- Clickable Metric Summary Cards -->
           <div class="metrics-grid">
             <div class="metric-card" id="cardTotalRows" title="Click to view total cutlist rows detail table">
               <div class="metric-icon blue"><i class="fa-solid fa-database"></i></div>
@@ -242,7 +375,6 @@
             <span>No download available because no new products were retained (all items in the cutlist already exist in your Existing Product List or were duplicates).</span>
           </div>
 
-          <!-- File Download Actions Bar (Exported as 'New Product List') -->
           <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem;">
             <button id="btnDownloadXlsx" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 0.85rem 1.8rem; font-size: 1rem;">
               <i class="fa-solid fa-file-excel"></i> Download New Product List (.xlsx)
@@ -258,7 +390,6 @@
             </button>
           </div>
         </section>
-
       </div>
     </div>
   </div>
@@ -266,8 +397,6 @@
   <!-- METRIC DETAIL TABLE POP-UP MODAL -->
   <div id="metricDetailModal" class="modal-overlay" style="z-index: 1100;">
     <div class="modal-card" style="max-width: 1040px; height: 85vh;">
-      
-      <!-- Header -->
       <div class="modal-header">
         <h2 id="detailModalTitle">
           <i class="fa-solid fa-table" style="color: var(--primary);"></i>
@@ -278,10 +407,7 @@
         </button>
       </div>
 
-      <!-- Body -->
       <div class="modal-body" style="display: flex; flex-direction: column; padding: 1.25rem; gap: 1rem; overflow: hidden;">
-
-        <!-- Search & Controls Bar -->
         <div class="detail-search-bar">
           <div class="terminal-search-box" style="flex: 1;">
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
@@ -293,7 +419,6 @@
           <span id="detailRecordCount" class="match-count-badge" style="font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); font-family: var(--font-sans);">Showing 0 records</span>
         </div>
 
-        <!-- Table Scrollable Area -->
         <div class="detail-table-wrapper">
           <table class="detail-table" id="detailTable">
             <thead>
@@ -308,12 +433,9 @@
                 <th>Status / Note</th>
               </tr>
             </thead>
-            <tbody id="detailTableBody">
-              <!-- Dynamic Rows rendered here -->
-            </tbody>
+            <tbody id="detailTableBody"></tbody>
           </table>
         </div>
-
       </div>
     </div>
   </div>
