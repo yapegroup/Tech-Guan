@@ -213,6 +213,7 @@
                   <th>GTIN</th>
                   <th>Category</th>
                   <th>Base UOM</th>
+                  <th>SAP Synced</th>
                   <th>Created By</th>
                 </tr>
               </thead>
@@ -637,6 +638,16 @@
             </label>
             <input type="text" id="editInputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
           </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              SAP Synced <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="editSelectSAPSynced" class="custom-select" required>
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
@@ -728,6 +739,16 @@
               Created By <span style="color: var(--danger);">*</span>
             </label>
             <input type="text" id="inputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
+          </div>
+
+          <div class="form-group">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+              SAP Synced <span style="color: var(--danger);">*</span>
+            </label>
+            <select id="selectSAPSynced" class="custom-select" required>
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
           </div>
         </div>
 

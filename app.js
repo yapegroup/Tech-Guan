@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectProductCategory = document.getElementById('selectProductCategory');
   const selectBaseUOM = document.getElementById('selectBaseUOM');
   const inputCreatedBy = document.getElementById('inputCreatedBy');
+  const selectSAPSynced = document.getElementById('selectSAPSynced');
 
   // Master Product Selection & Edit Modal Bindings
   const masterBottomActions = document.getElementById('masterBottomActions');
@@ -94,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const editSelectProductCategory = document.getElementById('editSelectProductCategory');
   const editSelectBaseUOM = document.getElementById('editSelectBaseUOM');
   const editInputCreatedBy = document.getElementById('editInputCreatedBy');
+  const editSelectSAPSynced = document.getElementById('editSelectSAPSynced');
 
   let selectedMasterProductIds = new Set();
 
@@ -958,6 +960,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const baseUom = item.base_unit || item.base_uom || item['Base Unit of Measure'] || '-';
       const createdBy = item.created_by || item['Created By'] || '-';
 
+      const isSapSynced = item.sap_synced === true || item.sap_synced === 'true';
+      const sapBadge = isSapSynced
+        ? '<span class="badge-status retained">Yes</span>'
+        : '<span class="badge-status dup">No</span>';
+
       const isSelected = selectedMasterProductIds.has(pCode);
       if (isSelected) tr.classList.add('selected-row');
       tr.setAttribute('data-id', pCode);
@@ -974,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td style="font-size: 0.825rem;">${escapeHtml(gtin)}</td>
         <td style="font-size: 0.825rem;">${escapeHtml(pCat)}</td>
         <td style="font-size: 0.825rem;">${escapeHtml(baseUom)}</td>
+        <td style="font-size: 0.825rem;">${sapBadge}</td>
         <td style="font-size: 0.825rem; color: var(--text-muted);">${escapeHtml(createdBy)}</td>
       `;
 
@@ -1021,6 +1029,10 @@ document.addEventListener('DOMContentLoaded', () => {
       editSelectProductCategory.value = targetItem.product_category || ''; initializeCustomDropdownUI(editSelectProductCategory);
       editSelectBaseUOM.value = targetItem.base_unit || targetItem.base_uom || ''; initializeCustomDropdownUI(editSelectBaseUOM);
       editInputCreatedBy.value = targetItem.created_by || '';
+      if (editSelectSAPSynced) {
+        editSelectSAPSynced.value = String(Boolean(targetItem.sap_synced));
+        initializeCustomDropdownUI(editSelectSAPSynced);
+      }
 
       if (editProductModal) editProductModal.classList.add('active');
     });
@@ -1046,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const catVal = editSelectProductCategory ? editSelectProductCategory.value.trim() : '';
       const uomVal = editSelectBaseUOM ? editSelectBaseUOM.value.trim() : '';
       const createdByVal = editInputCreatedBy ? editInputCreatedBy.value.trim() : '';
+      const sapSyncedVal = editSelectSAPSynced ? editSelectSAPSynced.value === 'true' : false;
 
       if (!descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal || !createdByVal) {
         showAlert('<strong>Validation Failed:</strong> All fields in the Edit Product form are compulsory.');
@@ -1054,14 +1067,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const updatePayload = {
         description: descVal,
-        product_description: descVal,
         product_type: typeVal,
         product_group: groupVal,
         gtin: gtinVal,
         product_category: catVal,
         base_unit: uomVal,
-        base_uom: uomVal,
-        created_by: createdByVal
+        created_by: createdByVal,
+        sap_synced: sapSyncedVal
       };
 
       if (supabaseClient) {
@@ -1234,6 +1246,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const catVal = extractRowField(rowObj, ['product category', 'category', 'product_category', 'item category']);
                 const uomVal = extractRowField(rowObj, ['base unit of measure', 'base unit', 'base_unit', 'base_uom', 'uom', 'unit']);
                 const createdByVal = extractRowField(rowObj, ['created by', 'created_by', 'author', 'user', 'creator']);
+                const sapVal = extractRowField(rowObj, ['sap synced', 'sap_synced', 'sap sync', 'synced', 'sap']);
+                const isSapBool = sapVal ? (sapVal.toLowerCase() === 'yes' || sapVal.toLowerCase() === 'true' || sapVal === '1') : true;
 
                 extractedRecordsMap.set(cleanCode, {
                   product_id: cleanCode,
@@ -1243,7 +1257,8 @@ document.addEventListener('DOMContentLoaded', () => {
                   gtin: gtinVal || 'Product',
                   product_category: catVal || 'Product',
                   base_unit: uomVal || 'Piece (PC)',
-                  created_by: createdByVal || 'Admin'
+                  created_by: createdByVal || 'Admin',
+                  sap_synced: isSapBool
                 });
               }
             });
@@ -1411,10 +1426,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const catVal = selectProductCategory ? selectProductCategory.value.trim() : '';
       const uomVal = selectBaseUOM ? selectBaseUOM.value.trim() : '';
       const createdByVal = inputCreatedBy ? inputCreatedBy.value.trim() : '';
+      const sapSyncedVal = selectSAPSynced ? selectSAPSynced.value === 'true' : false;
 
       // Compulsory All-Fields Check
       if (!pCode || !descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal || !createdByVal) {
-        showAlert('<strong>Validation Failed:</strong> All fields in the Add Product form are compulsory. Please fill out all 8 fields.');
+        showAlert('<strong>Validation Failed:</strong> All fields in the Add Product form are compulsory.');
         return;
       }
 
@@ -1428,16 +1444,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const recordPayload = {
         product_id: cleanCode,
-        product: cleanCode,
         description: descVal,
-        product_description: descVal,
         product_type: typeVal,
         product_group: groupVal,
         gtin: gtinVal,
         product_category: catVal,
         base_unit: uomVal,
-        base_uom: uomVal,
-        created_by: createdByVal
+        created_by: createdByVal,
+        sap_synced: sapSyncedVal
       };
 
       if (!supabaseClient) {
