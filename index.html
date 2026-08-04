@@ -120,13 +120,13 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;">
               <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.25rem; color: #f59e0b;"></i>
               <span id="masterUnsyncedWarningText">
-                <strong>Action Required:</strong> <strong>15 products</strong> have <strong>SAP Synced = No</strong> in Master Product List and require synchronization with SAP.
+                <strong>Action Required:</strong> <strong>15 products</strong> require synchronization with SAP by exporting the list from this application then upload into SAP.
               </span>
             </div>
 
             <!-- Sync Action Dropdown Menu -->
             <div class="dropdown-wrapper" style="position: relative; display: inline-block;">
-              <button type="button" id="btnSyncActionDropdownToggle" class="btn-action-purple" style="gap: 0.4rem; padding: 0.35rem 0.85rem; height: 30px; font-size: 0.8rem;">
+              <button type="button" id="btnSyncActionDropdownToggle" class="btn-action-orange" style="gap: 0.4rem; padding: 0.35rem 0.85rem; height: 30px; font-size: 0.8rem;">
                 <i class="fa-solid fa-sliders"></i> Sync Action <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
               </button>
               <div id="syncActionDropdownMenu" class="export-dropdown-menu" style="right: 0; left: auto;">
@@ -1022,6 +1022,11 @@
           <div class="upload-icon" style="color: #0284c7; font-size: 2.2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
           <div class="upload-sub" style="font-weight: 600; color: var(--text-main);">Drag & drop Product file here or click to browse</div>
           <div class="upload-sub" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Supports Excel (.xlsx, .xls) and CSV (.csv)</div>
+
+          <div style="margin-top: 0.85rem; padding: 0.65rem 0.85rem; background: rgba(2, 132, 199, 0.06); border: 1px dashed rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); font-size: 0.775rem; text-align: center; color: var(--text-main); max-width: 95%; margin-left: auto; margin-right: auto;">
+            <span style="font-weight: 700; color: var(--primary); display: block; margin-bottom: 0.25rem;"><i class="fa-solid fa-table-columns"></i> Required Column Format:</span>
+            <code style="color: #0284c7; font-weight: 600; font-family: var(--font-sans); word-break: break-word;">Product, Product Description, Product Type, Product Group, Product Category, Base Unit of Measure, Created By</code>
+          </div>
 
           <button type="button" class="btn-primary" style="margin-top: 1rem;" id="supaBulkBtn">
             <i class="fa-solid fa-folder-open"></i> Select Excel File

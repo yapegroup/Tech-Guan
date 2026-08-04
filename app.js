@@ -1770,8 +1770,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (unsyncedCount > 0) {
       if (banner) banner.style.display = 'flex';
       if (bannerText) {
-        const itemText = unsyncedCount === 1 ? '1 product has' : `${unsyncedCount.toLocaleString()} products have`;
-        bannerText.innerHTML = `<strong>Action Required:</strong> <strong>${itemText}</strong> <strong>SAP Synced = No</strong> in Master Product List and require synchronization with SAP.`;
+        const itemText = unsyncedCount === 1 ? '1 product' : `${unsyncedCount.toLocaleString()} products`;
+        bannerText.innerHTML = `<strong>Action Required:</strong> <strong>${itemText}</strong> require synchronization with SAP by exporting the list from this application then upload into SAP.`;
       }
       if (tabBadge) {
         tabBadge.textContent = unsyncedCount > 99 ? '99+' : unsyncedCount;
@@ -2179,16 +2179,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const formattedUpdated = dtParts.time ? `${dtParts.date} ${dtParts.time}` : (dtParts.date || '-');
 
       return {
-        'Product ID / Code': pCode,
+        'Product': pCode,
         'Product Description': pDesc,
         'Product Type': pType,
         'Product Group': pGroup,
-        'GTIN': gtinVal,
         'Product Category': pCat,
         'Base Unit of Measure': baseUomVal,
-        'SAP Synced': sapSyncedText,
-        'Created By': createdByVal,
-        'Last Updated': formattedUpdated
+        'Created By': createdByVal
       };
     });
 
