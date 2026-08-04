@@ -315,11 +315,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       currentUser = matchedUser;
+      currentUser.lastActiveTimestamp = Date.now();
       saveAuthSession(currentUser);
       // JUMP TO WEB APP
       window.location.href = 'index.html';
     });
   }
+
+  // Session Expiry URL Check
+  function checkSessionReasonParam() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('reason') === 'expired') {
+      showAuthAlertError('<strong>Session Expired:</strong> You have been signed out due to inactivity. Please sign in again.');
+    }
+  }
+  checkSessionReasonParam();
 
   // --- PASSWORD RESET EMAIL LINK FLOW HANDLERS ---
   const btnSignInForgotPass = document.getElementById('btnSignInForgotPass');

@@ -3582,6 +3582,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function saveAuthSession() {
     try {
       if (currentUser) {
+        currentUser.lastActiveTimestamp = Date.now();
         localStorage.setItem('tg_auth_session', JSON.stringify(currentUser));
       } else {
         localStorage.removeItem('tg_auth_session');
