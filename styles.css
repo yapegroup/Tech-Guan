@@ -1734,15 +1734,42 @@ body {
 .login-page-body {
   min-height: 100vh;
   margin: 0;
-  background: var(--bg-body);
+  background-color: #f8fafc;
   background-image: 
-    radial-gradient(at 15% 15%, rgba(2, 132, 199, 0.12) 0px, transparent 50%),
-    radial-gradient(at 85% 85%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(224, 242, 254, 0.95) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(209, 250, 229, 0.75) 0px, transparent 60%),
+    linear-gradient(135deg, #f1f5f9 0%, #ffffff 50%, #e2e8f0 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-page-body::before {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: -15%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(2, 132, 199, 0.15) 0%, transparent 70%);
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+.login-page-body::after {
+  content: '';
+  position: absolute;
+  bottom: -15%;
+  right: -15%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+  filter: blur(50px);
+  pointer-events: none;
 }
 
 .login-portal-container {
@@ -1750,15 +1777,17 @@ body {
   max-width: 440px;
   display: flex;
   justify-content: center;
+  position: relative;
+  z-index: 10;
 }
 
 .login-portal-card {
-  background: var(--bg-card);
-  border: 1px solid var(--bg-card-border);
-  border-radius: var(--radius-lg);
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   width: 100%;
   padding: 2.25rem 2rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
 .auth-portal-overlay:not(.active) {
