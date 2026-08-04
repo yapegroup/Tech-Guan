@@ -11,25 +11,25 @@
       try {
         const sessionStr = localStorage.getItem('tg_auth_session');
         if (!sessionStr) {
-          window.location.href = 'login.html';
+          window.location.href = 'login';
           return;
         }
         const sessionUser = JSON.parse(sessionStr);
         if (!sessionUser || !sessionUser.email || sessionUser.status !== 'Active') {
           localStorage.removeItem('tg_auth_session');
-          window.location.href = 'login.html';
+          window.location.href = 'login';
           return;
         }
         // 8-Hour Inactivity Expiry Guard
         const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
         if (sessionUser.lastActiveTimestamp && (Date.now() - sessionUser.lastActiveTimestamp > EIGHT_HOURS_MS)) {
           localStorage.removeItem('tg_auth_session');
-          window.location.href = 'login.html?reason=expired';
+          window.location.href = 'login?reason=expired';
           return;
         }
       } catch (e) {
         localStorage.removeItem('tg_auth_session');
-        window.location.href = 'login.html';
+        window.location.href = 'login';
       }
     })();
   </script>
