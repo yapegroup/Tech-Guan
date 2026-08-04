@@ -53,3 +53,8 @@ CREATE POLICY "Public full access product_categories" ON public.product_categori
 ALTER TABLE public.base_units_of_measure ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public full access base_units_of_measure" ON public.base_units_of_measure;
 CREATE POLICY "Public full access base_units_of_measure" ON public.base_units_of_measure FOR ALL USING (true) WITH CHECK (true);
+
+-- ==============================================================================
+-- 4. ADD LAST UPDATED (updated_at) COLUMN TO MASTER PRODUCTS TABLE
+-- ==============================================================================
+ALTER TABLE public.master_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
