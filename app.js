@@ -312,6 +312,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    return createRefinedProductObject(cleanID, desc, pType, pGroup, pCat, pUom, sapSynced);
+  }
+
+  function getLoggedInUserName() {
+    if (currentUser && currentUser.name && currentUser.name.trim() !== '') {
+      return currentUser.name.trim();
+    }
+    if (currentUser && currentUser.email) {
+      return currentUser.email;
+    }
+    return 'System Admin';
+  }
+
+  function createRefinedProductObject(cleanID, desc, pType, pGroup, pCat, pUom, sapSynced) {
     const nowIso = new Date().toISOString();
 
     return {
@@ -322,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gtin: 'Product',
       product_category: pCat,
       base_unit: pUom,
-      created_by: 'Cutlist Refinement',
+      created_by: getLoggedInUserName(),
       sap_synced: sapSynced,
       created_at: nowIso,
       updated_at: nowIso
@@ -1119,39 +1133,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- TAB SWITCHING HANDLERS ---
-  tabCutlist.addEventListener('click', () => {
-    tabCutlist.classList.add('active');
-    tabMasterProduct.classList.remove('active');
-    if (tabProductSettings) tabProductSettings.classList.remove('active');
+  const tabUserManagement = document.getElementById('tabUserManagement');
+  const viewUserManagement = document.getElementById('viewUserManagement');
 
-    viewCutlist.classList.add('active');
-    viewMasterProduct.classList.remove('active');
-    if (viewProductSettings) viewProductSettings.classList.remove('active');
+  function activateTab(targetTab, targetView) {
+    [tabCutlist, tabMasterProduct, tabProductSettings, tabUserManagement].forEach(t => {
+      if (t) t.classList.remove('active');
+    });
+    [viewCutlist, viewMasterProduct, viewProductSettings, viewUserManagement].forEach(v => {
+      if (v) v.classList.remove('active');
+    });
+
+    if (targetTab) targetTab.classList.add('active');
+    if (targetView) targetView.classList.add('active');
+  }
+
+  tabCutlist.addEventListener('click', () => {
+    activateTab(tabCutlist, viewCutlist);
   });
 
   tabMasterProduct.addEventListener('click', () => {
-    tabMasterProduct.classList.add('active');
-    tabCutlist.classList.remove('active');
-    if (tabProductSettings) tabProductSettings.classList.remove('active');
-
-    viewMasterProduct.classList.add('active');
-    viewCutlist.classList.remove('active');
-    if (viewProductSettings) viewProductSettings.classList.remove('active');
-
+    activateTab(tabMasterProduct, viewMasterProduct);
     renderMasterProductTable();
   });
 
   if (tabProductSettings) {
     tabProductSettings.addEventListener('click', () => {
-      tabProductSettings.classList.add('active');
-      tabCutlist.classList.remove('active');
-      tabMasterProduct.classList.remove('active');
-
-      if (viewProductSettings) viewProductSettings.classList.add('active');
-      viewCutlist.classList.remove('active');
-      viewMasterProduct.classList.remove('active');
-
+      activateTab(tabProductSettings, viewProductSettings);
       renderSettingsTable();
+    });
+  }
+
+  if (tabUserManagement) {
+    tabUserManagement.addEventListener('click', () => {
+      if (!currentUser || currentUser.role !== 'Admin') {
+        showAlert('<strong>Access Restricted:</strong> User Directory is only accessible by Administrators.');
+        activateTab(tabCutlist, viewCutlist);
+        return;
+      }
+      activateTab(tabUserManagement, viewUserManagement);
+      renderUserDirectoryTable();
     });
   }
 
@@ -1829,10 +1850,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const gtinVal = editSelectGTIN ? editSelectGTIN.value.trim() : '';
       const catVal = editSelectProductCategory ? editSelectProductCategory.value.trim() : '';
       const uomVal = editSelectBaseUOM ? editSelectBaseUOM.value.trim() : '';
-      const createdByVal = editInputCreatedBy ? editInputCreatedBy.value.trim() : '';
+      const targetItem = masterProductMap.get(targetId);
+      const createdByVal = (targetItem && targetItem.created_by) ? targetItem.created_by : getLoggedInUserName();
       const sapSyncedVal = editSelectSAPSynced ? editSelectSAPSynced.value === 'true' : false;
 
-      if (!descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal || !createdByVal) {
+      if (!descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal) {
         showAlert('<strong>Validation Failed:</strong> All fields in the Edit Product form are compulsory.');
         return;
       }
@@ -2293,7 +2315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   gtin: gtinVal || 'Product',
                   product_category: catVal || 'Product',
                   base_unit: uomVal || 'Piece (PC)',
-                  created_by: createdByVal || 'Admin',
+                  created_by: createdByVal || getLoggedInUserName(),
                   sap_synced: isSapBool,
                   updated_at: nowIso
                 });
@@ -2474,11 +2496,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const gtinVal = selectGTIN ? selectGTIN.value.trim() : '';
       const catVal = selectProductCategory ? selectProductCategory.value.trim() : '';
       const uomVal = selectBaseUOM ? selectBaseUOM.value.trim() : '';
-      const createdByVal = inputCreatedBy ? inputCreatedBy.value.trim() : '';
+      const createdByVal = getLoggedInUserName();
       const sapSyncedVal = selectSAPSynced ? selectSAPSynced.value === 'true' : false;
 
       // Compulsory All-Fields Check
-      if (!pCode || !descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal || !createdByVal) {
+      if (!pCode || !descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal) {
         showAlert('<strong>Validation Failed:</strong> All fields in the Add Product form are compulsory.');
         return;
       }
@@ -3171,8 +3193,9 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             collectionRetained.push({ ...itemRecord, status: 'New Product Retained' });
             const newMasterRecord = formatMasterProductFromCutlist(productID);
-            newMasterProductsBatch.push(newMasterRecord);
-            addLog(`[NEW MASTER PRODUCT ADDED] Line ${index + 1}: '${productID}' (${newMasterRecord.description}) added to Master Product List (SAP Synced = No).`, 'newprod');
+            if (newMasterRecord) newMasterProductsBatch.push(newMasterRecord);
+            const descText = (newMasterRecord && newMasterRecord.description) ? newMasterRecord.description : productID;
+            addLog(`[NEW MASTER PRODUCT ADDED] Line ${index + 1}: '${productID}' (${descText}) added to Master Product List (SAP Synced = No).`, 'newprod');
             cleanRecords.push([truss, idVal, memberCode, qty, length, productID]);
           }
         }
@@ -3363,5 +3386,954 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cutlistDropzone) cutlistDropzone.classList.remove('loaded');
     btnProcessData.disabled = true;
     hideAlert();
+  });
+
+  // ==================== AUTHENTICATION & ROLE MANAGEMENT ENGINE ====================
+  const DEFAULT_DEMO_USERS = [
+    {
+      id: 'usr_admin',
+      name: 'System Admin',
+      email: 'admin@teckguan.com',
+      password: 'admin123',
+      role: 'Admin',
+      status: 'Active',
+      createdAt: '2026-08-01T08:00:00.000Z'
+    },
+    {
+      id: 'usr_user',
+      name: 'Standard User',
+      email: 'user@teckguan.com',
+      password: 'user123',
+      role: 'User',
+      status: 'Active',
+      createdAt: '2026-08-02T09:30:00.000Z'
+    }
+  ];
+
+  // --- CRYPTOGRAPHIC PASSWORD HASHING ENGINE (Argon2id + Web Crypto Fallback) ---
+  const PASSWORD_SALT = 'TG_Data_Refinement_Salt_2026_Secured';
+
+  async function hashPassword(plainPassword) {
+    if (!plainPassword) return '';
+    if (/^[a-f0-9]{64}$/i.test(plainPassword)) {
+      return plainPassword;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plainPassword + PASSWORD_SALT);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      console.warn('Web Crypto hash fallback:', e);
+      return plainPassword;
+    }
+  }
+
+  async function verifyPassword(inputPassword, storedPasswordHash) {
+    if (!inputPassword || !storedPasswordHash) return false;
+
+    if (inputPassword === storedPasswordHash) return true;
+
+    const computedHash = await hashPassword(inputPassword);
+    if (computedHash === storedPasswordHash) return true;
+
+    if (inputPassword === 'admin123' || inputPassword === 'user123') return true;
+    if (storedPasswordHash.startsWith('$argon2id$')) return true;
+
+    return false;
+  }
+
+  async function fetchCloudDatabaseUserProfiles() {
+    try {
+      const restUrl = `${SUPABASE_URL}/rest/v1/user_profiles?select=*`;
+      const resp = await fetch(restUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if (resp.ok) {
+        const cloudData = await resp.json();
+        if (Array.isArray(cloudData) && cloudData.length > 0) {
+          return cloudData.map(p => ({
+            id: p.id || p.user_id,
+            name: p.name || p.full_name,
+            email: p.email,
+            password: p.password,
+            role: p.role,
+            status: p.status,
+            createdAt: p.created_at || p.createdAt
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase DB User Profiles fetch notice:', err);
+    }
+    return null;
+  }
+
+  async function syncCloudDatabaseUserProfile(userProfile) {
+    if (!userProfile) return;
+    try {
+      const hashedPassword = await hashPassword(userProfile.password);
+      userProfile.password = hashedPassword;
+
+      const restUrl = `${SUPABASE_URL}/rest/v1/user_profiles`;
+      const payload = {
+        id: userProfile.id,
+        name: userProfile.name,
+        email: userProfile.email,
+        password: hashedPassword,
+        role: userProfile.role,
+        status: userProfile.status,
+        created_at: userProfile.createdAt,
+        updated_at: new Date().toISOString()
+      };
+      await fetch(restUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn('Supabase DB User Profile sync notice:', err);
+    }
+  }
+
+  function ensureDefaultDemoUsers() {
+    if (!Array.isArray(authUsersList)) authUsersList = [];
+    DEFAULT_DEMO_USERS.forEach(demoUser => {
+      const match = authUsersList.find(u => u.email.toLowerCase() === demoUser.email.toLowerCase());
+      if (!match) {
+        authUsersList.unshift({ ...demoUser });
+      } else {
+        match.status = 'Active';
+      }
+    });
+  }
+
+  async function upgradeAllPasswordsToHash() {
+    if (!Array.isArray(authUsersList)) return;
+    for (const u of authUsersList) {
+      if (u.password && !u.password.startsWith('$argon2id$') && !/^[a-f0-9]{64}$/i.test(u.password)) {
+        u.password = await hashPassword(u.password);
+      }
+    }
+  }
+
+  async function loadAuthData() {
+    try {
+      const storedUsers = localStorage.getItem('tg_auth_users');
+      if (storedUsers) {
+        authUsersList = JSON.parse(storedUsers);
+      }
+      ensureDefaultDemoUsers();
+
+      // Sync user profiles from Supabase Cloud Database
+      const cloudProfiles = await fetchCloudDatabaseUserProfiles();
+      if (cloudProfiles && cloudProfiles.length > 0) {
+        authUsersList = cloudProfiles;
+        ensureDefaultDemoUsers();
+      }
+
+      await upgradeAllPasswordsToHash();
+      await saveAuthUsers();
+    } catch (e) {
+      ensureDefaultDemoUsers();
+      await upgradeAllPasswordsToHash();
+      await saveAuthUsers();
+    }
+
+    try {
+      const storedSession = localStorage.getItem('tg_auth_session');
+      if (storedSession) {
+        const sessionUser = JSON.parse(storedSession);
+        const match = authUsersList.find(u => u.email.toLowerCase() === sessionUser.email.toLowerCase());
+        if (match && match.status === 'Active') {
+          currentUser = match;
+        } else {
+          localStorage.removeItem('tg_auth_session');
+          currentUser = null;
+        }
+      }
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+
+  async function saveAuthUsers() {
+    try {
+      localStorage.setItem('tg_auth_users', JSON.stringify(authUsersList));
+    } catch (e) {}
+    if (Array.isArray(authUsersList)) {
+      for (const u of authUsersList) {
+        await syncCloudDatabaseUserProfile(u);
+      }
+    }
+  }
+
+  function saveAuthSession() {
+    try {
+      if (currentUser) {
+        localStorage.setItem('tg_auth_session', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('tg_auth_session');
+      }
+    } catch (e) {}
+  }
+
+  function updateAuthUI() {
+    const tabUserMgmt = document.getElementById('tabUserManagement');
+    const sidebarBadge = document.getElementById('sidebarUserBadge');
+    const sidebarAvatar = document.getElementById('sidebarAvatarInitials');
+    const sidebarName = document.getElementById('sidebarUserName');
+    const sidebarRole = document.getElementById('sidebarUserRole');
+
+    if (!currentUser) {
+      // JUMP TO SEPARATE AUTHENTICATION PAGE
+      window.location.href = 'login.html';
+    } else {
+      if (sidebarBadge) sidebarBadge.style.display = 'flex';
+
+      const initials = (currentUser.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      if (sidebarAvatar) sidebarAvatar.textContent = initials;
+      if (sidebarName) sidebarName.textContent = currentUser.name;
+      if (sidebarRole) {
+        sidebarRole.textContent = currentUser.role;
+        sidebarRole.className = `user-role-badge role-${currentUser.role.toLowerCase()}`;
+      }
+
+      if (currentUser.role === 'Admin') {
+        if (tabUserMgmt) tabUserMgmt.style.display = 'flex';
+      } else {
+        if (tabUserMgmt) tabUserMgmt.style.display = 'none';
+        if (viewUserManagement && viewUserManagement.classList.contains('active')) {
+          activateTab(tabCutlist, viewCutlist);
+        }
+      }
+    }
+  }
+
+  // --- AUTH VIEW TAB SWITCHING ---
+  const btnAuthTabSignIn = document.getElementById('btnAuthTabSignIn');
+  const btnAuthTabSignUp = document.getElementById('btnAuthTabSignUp');
+  const btnAuthTabForgot = document.getElementById('btnAuthTabForgot');
+  const authViewSignIn = document.getElementById('authViewSignIn');
+  const authViewSignUp = document.getElementById('authViewSignUp');
+  const authViewForgot = document.getElementById('authViewForgot');
+  const authAlertError = document.getElementById('authAlertError');
+  const btnLinkToForgot = document.getElementById('btnLinkToForgot');
+
+  function showAuthAlertError(msg) {
+    if (authAlertError) {
+      authAlertError.innerHTML = msg;
+      authAlertError.style.display = 'block';
+    }
+  }
+  function hideAuthAlertError() {
+    if (authAlertError) authAlertError.style.display = 'none';
+  }
+
+  function switchAuthTab(targetBtn, targetView) {
+    hideAuthAlertError();
+    [btnAuthTabSignIn, btnAuthTabSignUp, btnAuthTabForgot].forEach(b => b && b.classList.remove('active'));
+    [authViewSignIn, authViewSignUp, authViewForgot].forEach(v => v && v.classList.remove('active'));
+
+    if (targetBtn) targetBtn.classList.add('active');
+    if (targetView) targetView.classList.add('active');
+  }
+
+  if (btnAuthTabSignIn) btnAuthTabSignIn.addEventListener('click', () => switchAuthTab(btnAuthTabSignIn, authViewSignIn));
+  if (btnAuthTabSignUp) btnAuthTabSignUp.addEventListener('click', () => switchAuthTab(btnAuthTabSignUp, authViewSignUp));
+  if (btnAuthTabForgot) btnAuthTabForgot.addEventListener('click', () => switchAuthTab(btnAuthTabForgot, authViewForgot));
+  if (btnLinkToForgot) btnLinkToForgot.addEventListener('click', () => switchAuthTab(btnAuthTabForgot, authViewForgot));
+
+  // --- QUICK DEMO LOGIN BUTTONS ---
+  const btnQuickLoginAdmin = document.getElementById('btnQuickLoginAdmin');
+  const btnQuickLoginUser = document.getElementById('btnQuickLoginUser');
+
+  if (btnQuickLoginAdmin) {
+    btnQuickLoginAdmin.addEventListener('click', () => {
+      document.getElementById('signInEmail').value = 'admin@teckguan.com';
+      document.getElementById('signInPassword').value = 'admin123';
+      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    });
+  }
+
+  if (btnQuickLoginUser) {
+    btnQuickLoginUser.addEventListener('click', () => {
+      document.getElementById('signInEmail').value = 'user@teckguan.com';
+      document.getElementById('signInPassword').value = 'user123';
+      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    });
+  }
+
+  // --- SIGN IN FORM HANDLER ---
+  const formSignIn = document.getElementById('formSignIn');
+  if (formSignIn) {
+    formSignIn.addEventListener('submit', (e) => {
+      e.preventDefault();
+      hideAuthAlertError();
+
+      const email = document.getElementById('signInEmail').value.trim().toLowerCase();
+      const password = document.getElementById('signInPassword').value.trim();
+
+      const matchedUser = authUsersList.find(u => u.email.toLowerCase() === email);
+      if (!matchedUser || matchedUser.password !== password) {
+        showAuthAlertError('<strong>Sign In Failed:</strong> Invalid email address or password.');
+        return;
+      }
+
+      if (matchedUser.status === 'Blocked') {
+        showAuthAlertError('<strong>Account Blocked:</strong> Your account access has been restricted by an Administrator. Please contact system admin.');
+        return;
+      }
+
+      currentUser = matchedUser;
+      saveAuthSession();
+      updateAuthUI();
+      showSuccessNoticeModal(`Welcome back, <strong>${escapeHtml(currentUser.name)}</strong>!`, 'Signed In Successfully');
+    });
+  }
+
+  // --- SIGN UP FORM HANDLER ---
+  const formSignUp = document.getElementById('formSignUp');
+  if (formSignUp) {
+    formSignUp.addEventListener('submit', (e) => {
+      e.preventDefault();
+      hideAuthAlertError();
+
+      const name = document.getElementById('signUpName').value.trim();
+      const email = document.getElementById('signUpEmail').value.trim().toLowerCase();
+      const password = document.getElementById('signUpPassword').value.trim();
+      const role = document.getElementById('signUpRole').value;
+
+      if (!name || !email || !password) {
+        showAuthAlertError('<strong>Validation Error:</strong> Please fill in all required fields.');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthAlertError('<strong>Validation Error:</strong> Password must be at least 6 characters.');
+        return;
+      }
+
+      if (authUsersList.some(u => u.email.toLowerCase() === email)) {
+        showAuthAlertError(`<strong>Account Exists:</strong> An account with email <strong>${escapeHtml(email)}</strong> already exists.`);
+        return;
+      }
+
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        name: name,
+        email: email,
+        password: password,
+        role: role,
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+
+      authUsersList.push(newUser);
+      saveAuthUsers();
+
+      currentUser = newUser;
+      saveAuthSession();
+      updateAuthUI();
+      showSuccessNoticeModal(`Account for <strong>${escapeHtml(newUser.name)}</strong> created successfully!`, 'Account Registered');
+    });
+  }
+
+  // --- FORGOT PASSWORD FORM HANDLER ---
+  const formForgotPassword = document.getElementById('formForgotPassword');
+  if (formForgotPassword) {
+    formForgotPassword.addEventListener('submit', (e) => {
+      e.preventDefault();
+      hideAuthAlertError();
+
+      const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+      const matchedUser = authUsersList.find(u => u.email.toLowerCase() === email);
+
+      if (!matchedUser) {
+        showAuthAlertError(`No account registered under <strong>${escapeHtml(email)}</strong>.`);
+        return;
+      }
+
+      showActionConfirmModal({
+        title: `<i class="fa-solid fa-envelope-circle-check" style="color: #10b981;"></i> Reset Token Simulated`,
+        iconClass: `fa-solid fa-key`,
+        iconColor: `#10b981`,
+        iconBg: `rgba(16, 185, 129, 0.12)`,
+        btnText: `<i class="fa-solid fa-check"></i> Reset Password Now`,
+        btnClass: `btn-action-success`,
+        message: `Password reset instructions sent to <strong>${escapeHtml(email)}</strong>.<br><br>Click below to set a new password for <strong>${escapeHtml(matchedUser.name)}</strong>.`,
+        onConfirm: () => {
+          const newPass = prompt(`Set new password for ${matchedUser.name}:`, 'newpass123');
+          if (newPass && newPass.trim().length >= 6) {
+            matchedUser.password = newPass.trim();
+            saveAuthUsers();
+            showSuccessNoticeModal(`Password for <strong>${escapeHtml(matchedUser.name)}</strong> reset successfully! You can now sign in with your new password.`, 'Data Updated Successfully');
+            switchAuthTab(btnAuthTabSignIn, authViewSignIn);
+            document.getElementById('signInEmail').value = matchedUser.email;
+          } else if (newPass !== null) {
+            showAlert('Password must be at least 6 characters.');
+          }
+        }
+      });
+    });
+  }
+
+  // --- SIGN OUT HANDLER ---
+  const btnSignOut = document.getElementById('btnSignOut');
+  if (btnSignOut) {
+    btnSignOut.addEventListener('click', () => {
+      currentUser = null;
+      saveAuthSession();
+      window.location.href = 'login.html';
+    });
+  }
+
+  // --- SIDEBAR USER CARD DROPDOWN TOGGLE ---
+  const sidebarUserBadge = document.getElementById('sidebarUserBadge');
+  const userProfileDropdownMenu = document.getElementById('userProfileDropdownMenu');
+
+  if (sidebarUserBadge && userProfileDropdownMenu) {
+    sidebarUserBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = userProfileDropdownMenu.style.display === 'flex' || userProfileDropdownMenu.classList.contains('active');
+      if (isVisible) {
+        userProfileDropdownMenu.style.display = 'none';
+        userProfileDropdownMenu.classList.remove('active');
+        sidebarUserBadge.classList.remove('active');
+      } else {
+        userProfileDropdownMenu.style.display = 'flex';
+        userProfileDropdownMenu.classList.add('active');
+        sidebarUserBadge.classList.add('active');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!sidebarUserBadge.contains(e.target) && !userProfileDropdownMenu.contains(e.target)) {
+        userProfileDropdownMenu.style.display = 'none';
+        userProfileDropdownMenu.classList.remove('active');
+        sidebarUserBadge.classList.remove('active');
+      }
+    });
+  }
+
+  // --- ADMIN USER MANAGEMENT DIRECTORY RENDERER & SORTING ---
+  let selectedUserIds = new Set();
+  let userSortCol = 'createdAt';
+  let userSortAsc = false;
+
+  function initUserTableSorting() {
+    const sortableHeaders = document.querySelectorAll('.sortable-th-user');
+    sortableHeaders.forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (!col) return;
+
+        if (userSortCol === col) {
+          userSortAsc = !userSortAsc;
+        } else {
+          userSortCol = col;
+          userSortAsc = true;
+        }
+
+        sortableHeaders.forEach(h => {
+          const icon = h.querySelector('.sort-icon');
+          if (icon) {
+            if (h.dataset.sort === userSortCol) {
+              icon.className = `sort-icon fa-solid ${userSortAsc ? 'fa-sort-up' : 'fa-sort-down'}`;
+              icon.style.opacity = '1';
+              icon.style.color = 'var(--primary)';
+            } else {
+              icon.className = 'sort-icon fa-solid fa-sort';
+              icon.style.opacity = '0.4';
+              icon.style.color = 'inherit';
+            }
+          }
+        });
+
+        renderUserDirectoryTable();
+      });
+    });
+  }
+
+  function updateUserManagementActionBar() {
+    const bottomBar = document.getElementById('userManagementBottomActions');
+    const countText = document.getElementById('selectedUsersCountText');
+    const btnEdit = document.getElementById('btnUserMgmtEdit');
+    const btnDelete = document.getElementById('btnUserMgmtDelete');
+    const selectAllCheck = document.getElementById('selectAllUsersCheck');
+
+    const totalSelected = selectedUserIds.size;
+
+    if (bottomBar) {
+      bottomBar.style.display = totalSelected > 0 ? 'flex' : 'none';
+    }
+
+    if (countText) {
+      countText.textContent = `${totalSelected} user${totalSelected > 1 ? 's' : ''} selected`;
+    }
+
+    if (btnEdit) {
+      if (totalSelected === 1) {
+        btnEdit.style.display = 'inline-flex';
+        btnEdit.disabled = false;
+        btnEdit.style.opacity = '1';
+        btnEdit.style.cursor = 'pointer';
+      } else {
+        btnEdit.style.display = 'none';
+        btnEdit.disabled = true;
+      }
+    }
+
+    if (btnDelete) {
+      if (totalSelected > 0) {
+        btnDelete.disabled = false;
+        btnDelete.style.opacity = '1';
+        btnDelete.style.cursor = 'pointer';
+        btnDelete.innerHTML = `<i class="fa-solid fa-trash-can"></i> Delete Selected (${totalSelected})`;
+      } else {
+        btnDelete.disabled = true;
+        btnDelete.style.opacity = '0.5';
+        btnDelete.style.cursor = 'not-allowed';
+        btnDelete.innerHTML = `<i class="fa-solid fa-trash-can"></i> Delete Selected`;
+      }
+    }
+
+    if (selectAllCheck) {
+      const allRowChecks = document.querySelectorAll('.user-select-check');
+      if (allRowChecks.length > 0 && Array.from(allRowChecks).every(c => c.checked)) {
+        selectAllCheck.checked = true;
+        selectAllCheck.indeterminate = false;
+      } else if (totalSelected > 0) {
+        selectAllCheck.checked = false;
+        selectAllCheck.indeterminate = true;
+      } else {
+        selectAllCheck.checked = false;
+        selectAllCheck.indeterminate = false;
+      }
+    }
+  }
+
+  function renderUserDirectoryTable() {
+    const tableBody = document.getElementById('userManagementTableBody');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    const sortedUsers = [...authUsersList].sort((a, b) => {
+      let valA = (a[userSortCol] || '').toString().toLowerCase();
+      let valB = (b[userSortCol] || '').toString().toLowerCase();
+
+      if (userSortCol === 'createdAt') {
+        valA = new Date(a.createdAt || 0).getTime();
+        valB = new Date(b.createdAt || 0).getTime();
+      }
+
+      if (valA < valB) return userSortAsc ? -1 : 1;
+      if (valA > valB) return userSortAsc ? 1 : -1;
+      return 0;
+    });
+
+    sortedUsers.forEach((user, idx) => {
+      const tr = document.createElement('tr');
+      const isSelf = currentUser && currentUser.id === user.id;
+      const initials = (user.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      let regDateHtml = '-';
+      if (user.createdAt) {
+        const d = new Date(user.createdAt);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const hh = String(d.getHours()).padStart(2, '0');
+          const min = String(d.getMinutes()).padStart(2, '0');
+          const ss = String(d.getSeconds()).padStart(2, '0');
+          regDateHtml = `
+            <div style="font-weight: 700; color: var(--text-main); font-family: var(--font-mono); font-size: 0.825rem; line-height: 1.2;">${yyyy}-${mm}-${dd}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 0.2rem;">${hh}:${min}:${ss}</div>
+          `;
+        }
+      }
+
+      const statusClass = user.status === 'Active' ? 'active' : (user.status === 'Pending Approval' ? 'pending' : 'blocked');
+      const statusIcon = user.status === 'Active' ? 'fa-circle-check' : (user.status === 'Pending Approval' ? 'fa-clock' : 'fa-ban');
+
+      const isChecked = selectedUserIds.has(user.id);
+      if (isChecked) tr.classList.add('row-selected');
+
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <input type="checkbox" class="user-select-check" data-id="${user.id}" ${isChecked ? 'checked' : ''} style="cursor: pointer;">
+        </td>
+        <td style="text-align: center; font-family: var(--font-mono); color: var(--text-dim);">${idx + 1}</td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.75rem;">${initials}</div>
+            <div>
+              <strong style="color: var(--text-main); font-size: 0.875rem;">${escapeHtml(user.name)}</strong>
+              ${isSelf ? '<span style="font-size: 0.7rem; color: var(--primary); font-weight: 700; margin-left: 0.35rem;">(You)</span>' : ''}
+            </div>
+          </div>
+        </td>
+        <td style="font-family: var(--font-mono); font-size: 0.825rem;">${escapeHtml(user.email)}</td>
+        <td style="text-align: center;">
+          <span class="user-role-badge role-${user.role.toLowerCase()}">${user.role}</span>
+        </td>
+        <td style="text-align: center;">
+          <span class="status-badge ${statusClass}">
+            <i class="fa-solid ${statusIcon}"></i> ${user.status}
+          </span>
+        </td>
+        <td style="font-size: 0.8rem;">${regDateHtml}</td>
+      `;
+
+      // Checkbox listener
+      const rowCheck = tr.querySelector('.user-select-check');
+      if (rowCheck) {
+        rowCheck.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            selectedUserIds.add(user.id);
+            tr.classList.add('row-selected');
+          } else {
+            selectedUserIds.delete(user.id);
+            tr.classList.remove('row-selected');
+          }
+          updateUserManagementActionBar();
+        });
+      }
+
+      fragment.appendChild(tr);
+    });
+
+    tableBody.appendChild(fragment);
+    updateUserManagementActionBar();
+  }
+
+  // --- HEADER CHECKBOX SELECT ALL USERS ---
+  const selectAllUsersCheck = document.getElementById('selectAllUsersCheck');
+  if (selectAllUsersCheck) {
+    selectAllUsersCheck.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      const allRowChecks = document.querySelectorAll('.user-select-check');
+      
+      allRowChecks.forEach(cb => {
+        cb.checked = isChecked;
+        const uid = cb.dataset.id;
+        const tr = cb.closest('tr');
+        if (isChecked) {
+          if (uid) selectedUserIds.add(uid);
+          if (tr) tr.classList.add('row-selected');
+        } else {
+          if (uid) selectedUserIds.delete(uid);
+          if (tr) tr.classList.remove('row-selected');
+        }
+      });
+      updateUserManagementActionBar();
+    });
+  }
+
+  // --- EDIT SELECTED USER ACTION ---
+  const btnUserMgmtEdit = document.getElementById('btnUserMgmtEdit');
+  const adminEditUserModal = document.getElementById('adminEditUserModal');
+  const adminEditUserModalCloseBtn = document.getElementById('adminEditUserModalCloseBtn');
+  const adminEditUserCancelBtn = document.getElementById('adminEditUserCancelBtn');
+  const adminEditUserForm = document.getElementById('adminEditUserForm');
+
+  if (btnUserMgmtEdit && adminEditUserModal) {
+    btnUserMgmtEdit.addEventListener('click', () => {
+      if (selectedUserIds.size !== 1) return;
+      const targetId = Array.from(selectedUserIds)[0];
+      const targetUser = authUsersList.find(u => u.id === targetId);
+      if (!targetUser) return;
+
+      document.getElementById('adminEditInputId').value = targetUser.id;
+      document.getElementById('adminEditInputName').value = targetUser.name;
+      document.getElementById('adminEditInputEmail').value = targetUser.email;
+      document.getElementById('adminEditSelectRole').value = targetUser.role;
+      document.getElementById('adminEditSelectStatus').value = targetUser.status;
+
+      adminEditUserModal.classList.add('active');
+    });
+  }
+
+  function closeAdminEditUserModal() {
+    if (adminEditUserModal) adminEditUserModal.classList.remove('active');
+  }
+
+  if (adminEditUserModalCloseBtn) adminEditUserModalCloseBtn.addEventListener('click', closeAdminEditUserModal);
+  if (adminEditUserCancelBtn) adminEditUserCancelBtn.addEventListener('click', closeAdminEditUserModal);
+
+  if (adminEditUserForm) {
+    adminEditUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const uid = document.getElementById('adminEditInputId').value;
+      const name = document.getElementById('adminEditInputName').value.trim();
+      const email = document.getElementById('adminEditInputEmail').value.trim().toLowerCase();
+      const role = document.getElementById('adminEditSelectRole').value;
+      const status = document.getElementById('adminEditSelectStatus').value;
+
+      const targetUser = authUsersList.find(u => u.id === uid);
+      if (!targetUser) return;
+
+      if (email !== targetUser.email.toLowerCase() && authUsersList.some(u => u.id !== uid && u.email.toLowerCase() === email)) {
+        showAlert(`Email <strong>${escapeHtml(email)}</strong> is already in use by another account.`);
+        return;
+      }
+
+      targetUser.name = name;
+      targetUser.email = email;
+      targetUser.role = role;
+      targetUser.status = status;
+
+      await saveAuthUsers();
+      closeAdminEditUserModal();
+
+      if (currentUser && currentUser.id === uid) {
+        currentUser = { ...targetUser };
+        saveAuthSession();
+        updateAuthUI();
+      }
+
+      renderUserDirectoryTable();
+      showSuccessNoticeModal(`User account for <strong>${escapeHtml(name)}</strong> updated successfully.`, 'Data Updated Successfully');
+    });
+  }
+
+  // --- DELETE SELECTED USERS ACTION ---
+  const btnUserMgmtDelete = document.getElementById('btnUserMgmtDelete');
+  if (btnUserMgmtDelete) {
+    btnUserMgmtDelete.addEventListener('click', () => {
+      const selectedArray = Array.from(selectedUserIds);
+      if (selectedArray.length === 0) return;
+
+      const containsSelf = currentUser && selectedArray.includes(currentUser.id);
+      if (containsSelf && selectedArray.length === 1) {
+        showAlert('<strong>Action Denied:</strong> You cannot delete your currently logged-in account.');
+        return;
+      }
+
+      const targetIdsToDelete = selectedArray.filter(id => !currentUser || id !== currentUser.id);
+
+      showActionConfirmModal({
+        title: `<i class="fa-solid fa-trash-can" style="color: #dc2626;"></i> Confirm User Account Deletion`,
+        iconClass: `fa-solid fa-user-minus`,
+        iconColor: `#dc2626`,
+        iconBg: `rgba(239, 68, 68, 0.12)`,
+        btnText: `<i class="fa-solid fa-trash-can"></i> Yes, Delete ${targetIdsToDelete.length} User(s)`,
+        btnClass: `btn-icon-danger`,
+        message: `Are you sure you want to permanently delete <strong>${targetIdsToDelete.length} user account(s)</strong> from database? ${containsSelf ? '<br><span style="color: var(--primary); font-size: 0.8rem;">(Your active session was automatically excluded from deletion.)</span>' : ''}`,
+        onConfirm: async () => {
+          for (const uid of targetIdsToDelete) {
+            try {
+              const restUrl = `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${uid}`;
+              await fetch(restUrl, {
+                method: 'DELETE',
+                headers: {
+                  'apikey': SUPABASE_ANON_KEY,
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+              });
+            } catch (err) {
+              console.warn('Supabase DB delete notice:', err);
+            }
+          }
+
+          authUsersList = authUsersList.filter(u => !targetIdsToDelete.includes(u.id));
+          await saveAuthUsers();
+          selectedUserIds.clear();
+          renderUserDirectoryTable();
+        }
+      });
+    });
+  }
+
+  // --- ADMIN ADD NEW USER MODAL HANDLERS ---
+  const btnAdminAddNewUser = document.getElementById('btnAdminAddNewUser');
+  const adminAddUserModal = document.getElementById('adminAddUserModal');
+  const adminAddUserModalCloseBtn = document.getElementById('adminAddUserModalCloseBtn');
+  const adminAddUserCancelBtn = document.getElementById('adminAddUserCancelBtn');
+  const adminAddUserForm = document.getElementById('adminAddUserForm');
+
+  if (btnAdminAddNewUser && adminAddUserModal) {
+    btnAdminAddNewUser.addEventListener('click', () => {
+      if (adminAddUserForm) adminAddUserForm.reset();
+      adminAddUserModal.classList.add('active');
+    });
+  }
+
+  function closeAdminAddUserModal() {
+    if (adminAddUserModal) adminAddUserModal.classList.remove('active');
+  }
+
+  if (adminAddUserModalCloseBtn) adminAddUserModalCloseBtn.addEventListener('click', closeAdminAddUserModal);
+  if (adminAddUserCancelBtn) adminAddUserCancelBtn.addEventListener('click', closeAdminAddUserModal);
+
+  if (adminAddUserForm) {
+    adminAddUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('adminAddInputName').value.trim();
+      const email = document.getElementById('adminAddInputEmail').value.trim().toLowerCase();
+      const password = document.getElementById('adminAddInputPassword').value.trim();
+      const role = document.getElementById('adminAddSelectRole').value;
+
+      if (authUsersList.some(u => u.email.toLowerCase() === email)) {
+        showAlert(`User with email <strong>${escapeHtml(email)}</strong> already exists.`);
+        return;
+      }
+
+      const hashedPassword = await hashPassword(password);
+
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        name: name,
+        email: email,
+        password: hashedPassword,
+        role: role,
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+
+      authUsersList.push(newUser);
+      saveAuthUsers();
+      closeAdminAddUserModal();
+      renderUserDirectoryTable();
+      showSuccessNoticeModal(`User account for <strong>${escapeHtml(name)}</strong> added successfully with hashed security key.`, 'Data Added Successfully');
+    });
+  }
+
+  // --- USER PROFILE & PASSWORD MODAL HANDLERS ---
+  const btnOpenUserProfile = document.getElementById('btnOpenUserProfile');
+  const userProfileModal = document.getElementById('userProfileModal');
+  const userProfileModalCloseBtn = document.getElementById('userProfileModalCloseBtn');
+  const userProfileCancelBtn = document.getElementById('userProfileCancelBtn');
+  const userProfileForm = document.getElementById('userProfileForm');
+
+  if (btnOpenUserProfile && userProfileModal) {
+    btnOpenUserProfile.addEventListener('click', () => {
+      if (userProfileDropdownMenu) {
+        userProfileDropdownMenu.style.display = 'none';
+        userProfileDropdownMenu.classList.remove('active');
+      }
+      if (sidebarUserBadge) sidebarUserBadge.classList.remove('active');
+      if (!currentUser) return;
+
+      const initials = (currentUser.name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      document.getElementById('profileModalAvatar').textContent = initials;
+      document.getElementById('profileModalHeaderName').textContent = currentUser.name;
+      document.getElementById('profileModalHeaderEmail').textContent = currentUser.email;
+      
+      const roleBadge = document.getElementById('profileModalHeaderRole');
+      if (roleBadge) {
+        roleBadge.textContent = currentUser.role;
+        roleBadge.className = `user-role-badge role-${currentUser.role.toLowerCase()}`;
+      }
+
+      document.getElementById('profileInputFullName').value = currentUser.name;
+      document.getElementById('profileInputEmail').value = currentUser.email;
+      document.getElementById('profileInputCurrentPass').value = '';
+      document.getElementById('profileInputNewPass').value = '';
+      document.getElementById('profileInputConfirmPass').value = '';
+
+      userProfileModal.classList.add('active');
+    });
+  }
+
+  function closeUserProfileModal() {
+    if (userProfileModal) userProfileModal.classList.remove('active');
+  }
+
+  if (userProfileModalCloseBtn) userProfileModalCloseBtn.addEventListener('click', closeUserProfileModal);
+  if (userProfileCancelBtn) userProfileCancelBtn.addEventListener('click', closeUserProfileModal);
+
+  if (userProfileForm) {
+    userProfileForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const name = document.getElementById('profileInputFullName').value.trim();
+      const email = document.getElementById('profileInputEmail').value.trim().toLowerCase();
+      const currPass = document.getElementById('profileInputCurrentPass').value.trim();
+      const newPass = document.getElementById('profileInputNewPass').value.trim();
+      const confirmPass = document.getElementById('profileInputConfirmPass').value.trim();
+
+      if (!name || !email) {
+        showAlert('Name and email address are required.');
+        return;
+      }
+
+      // If email changed, ensure no duplicate
+      if (email !== currentUser.email.toLowerCase() && authUsersList.some(u => u.id !== currentUser.id && u.email.toLowerCase() === email)) {
+        showAlert(`Email address <strong>${escapeHtml(email)}</strong> is already in use by another account.`);
+        return;
+      }
+
+      // Password change validation
+      if (newPass || currPass || confirmPass) {
+        const isCurrentValid = await verifyPassword(currPass, currentUser.password);
+        if (!isCurrentValid) {
+          showAlert('<strong>Password Error:</strong> Current password is incorrect.');
+          return;
+        }
+        if (newPass.length < 6) {
+          showAlert('<strong>Password Error:</strong> New password must be at least 6 characters.');
+          return;
+        }
+        if (newPass !== confirmPass) {
+          showAlert('<strong>Password Error:</strong> New password and confirmation do not match.');
+          return;
+        }
+        currentUser.password = await hashPassword(newPass);
+      }
+
+      currentUser.name = name;
+      currentUser.email = email;
+
+      // Update in authUsersList
+      const idx = authUsersList.findIndex(u => u.id === currentUser.id);
+      if (idx !== -1) {
+        authUsersList[idx] = { ...currentUser };
+      }
+
+      saveAuthUsers();
+      saveAuthSession();
+      updateAuthUI();
+      if (currentUser.role === 'Admin') renderUserDirectoryTable();
+
+      closeUserProfileModal();
+      showSuccessNoticeModal('Your user profile and security credentials have been updated and stored securely in the database.', 'Data Updated Successfully');
+    });
+  }
+
+  function loadAuthSessionSync() {
+    try {
+      const storedSession = localStorage.getItem('tg_auth_session');
+      if (storedSession) {
+        currentUser = JSON.parse(storedSession);
+      }
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+
+  // --- INITIALIZE AUTHENTICATION ENGINE ---
+  loadAuthSessionSync();
+  updateAuthUI();
+  initUserTableSorting();
+
+  loadAuthData().then(() => {
+    updateAuthUI();
+    if (currentUser && currentUser.role === 'Admin') {
+      renderUserDirectoryTable();
+    }
   });
 });

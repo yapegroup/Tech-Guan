@@ -9,12 +9,12 @@
   <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="shortcut icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
   <link rel="apple-touch-icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
-  <link rel="stylesheet" href="styles.css?v=1.2.0">
+  <link rel="stylesheet" href="styles.css?v=1.9.0">
   <!-- FontAwesome Icons, SheetJS & Supabase JS SDK -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=1.2.0" defer></script>
+  <script src="app.js?v=1.9.0" defer></script>
 </head>
 <body data-theme="light">
 
@@ -44,7 +44,32 @@
           <button class="nav-tab" id="tabProductSettings">
             <i class="fa-solid fa-sliders"></i> Product Settings
           </button>
+          <button class="nav-tab" id="tabUserManagement" style="display: none;">
+            <i class="fa-solid fa-users-gear"></i> User Management
+          </button>
         </nav>
+      </div>
+
+      <!-- Logged-in User Profile Badge & Dropdown -->
+      <div class="sidebar-bottom" style="position: relative;">
+        <div id="sidebarUserBadge" class="sidebar-user-badge clickable-user-card" title="Click to view user menu">
+          <div class="user-avatar" id="sidebarAvatarInitials">AD</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebarUserName">Admin User</div>
+            <span class="user-role-badge role-admin" id="sidebarUserRole">Admin</span>
+          </div>
+          <i class="fa-solid fa-chevron-up user-card-chevron"></i>
+        </div>
+
+        <!-- User Profile Dropdown Popup Menu -->
+        <div id="userProfileDropdownMenu" class="user-profile-dropdown-menu" style="display: none;">
+          <button type="button" id="btnOpenUserProfile" class="dropdown-item">
+            <i class="fa-solid fa-user-gear" style="color: var(--primary);"></i> User Profile
+          </button>
+          <button type="button" id="btnSignOut" class="dropdown-item danger">
+            <i class="fa-solid fa-right-from-bracket" style="color: #dc2626;"></i> Sign Out
+          </button>
+        </div>
       </div>
 
     </aside>
@@ -522,6 +547,67 @@
         </section>
       </div>
 
+      <!-- ==================== TAB 4: ADMIN USER MANAGEMENT WORKSPACE ==================== -->
+      <div id="viewUserManagement" class="tab-view">
+        <section class="glass-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+            <div>
+              <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <i class="fa-solid fa-users-gear" style="color: var(--primary);"></i> User Access & Permission Directory
+              </h2>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <button type="button" id="btnAdminAddNewUser" class="btn-action-primary">
+                <i class="fa-solid fa-user-plus"></i> Add New User
+              </button>
+            </div>
+          </div>
+
+          <!-- User Directory Table Card -->
+          <div class="detail-table-wrapper" style="max-height: 580px; overflow-x: auto;">
+            <table class="detail-table settings-selectable-table" id="userManagementTable">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">
+                    <input type="checkbox" id="selectAllUsersCheck" title="Select / Unselect All Users" style="cursor: pointer;">
+                  </th>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th class="sortable-th-user" data-sort="name" style="cursor: pointer; user-select: none;" title="Click to sort by User Name">
+                    User Details <i class="sort-icon fa-solid fa-sort" style="opacity: 0.4; font-size: 0.75rem; margin-left: 4px;"></i>
+                  </th>
+                  <th class="sortable-th-user" data-sort="email" style="cursor: pointer; user-select: none;" title="Click to sort by Email">
+                    Email Address <i class="sort-icon fa-solid fa-sort" style="opacity: 0.4; font-size: 0.75rem; margin-left: 4px;"></i>
+                  </th>
+                  <th class="sortable-th-user" data-sort="role" style="text-align: center; cursor: pointer; user-select: none;" title="Click to sort by Role">
+                    Role <i class="sort-icon fa-solid fa-sort" style="opacity: 0.4; font-size: 0.75rem; margin-left: 4px;"></i>
+                  </th>
+                  <th class="sortable-th-user" data-sort="status" style="text-align: center; cursor: pointer; user-select: none;" title="Click to sort by Status">
+                    Status & Permission <i class="sort-icon fa-solid fa-sort" style="opacity: 0.4; font-size: 0.75rem; margin-left: 4px;"></i>
+                  </th>
+                  <th class="sortable-th-user" data-sort="createdAt" style="cursor: pointer; user-select: none;" title="Click to sort by Registered Date">
+                    Registered Date <i class="sort-icon fa-solid fa-sort" style="opacity: 0.4; font-size: 0.75rem; margin-left: 4px;"></i>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="userManagementTableBody">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Action Bar for Selected Users -->
+          <div class="settings-bottom-bar" id="userManagementBottomActions" style="display: none; margin-top: 1rem; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: flex-end;">
+            <button type="button" id="btnUserMgmtEdit" class="btn-secondary" disabled style="display: inline-flex; gap: 0.4rem; padding: 0.45rem 0.85rem; font-size: 0.8rem;">
+              <i class="fa-solid fa-pen-to-square"></i> Edit User
+            </button>
+            <button type="button" id="btnUserMgmtDelete" class="btn-icon-danger" disabled style="display: inline-flex; gap: 0.4rem; padding: 0.45rem 0.85rem; font-size: 0.8rem;">
+              <i class="fa-solid fa-trash-can"></i> Delete Selected
+            </button>
+          </div>
+        </section>
+      </div>
+
   </main>
 
   <!-- POP-UP REFINEMENT MODAL -->
@@ -865,13 +951,6 @@
 
           <div class="form-group">
             <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
-              Created By <span style="color: var(--danger);">*</span>
-            </label>
-            <input type="text" id="editInputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
-          </div>
-
-          <div class="form-group">
-            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
               SAP Synced <span style="color: var(--danger);">*</span>
             </label>
             <select id="editSelectSAPSynced" class="custom-select" required>
@@ -963,13 +1042,6 @@
             <select id="selectBaseUOM" class="custom-select" required>
               <option value="">-- Select Base Unit of Measure --</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
-              Created By <span style="color: var(--danger);">*</span>
-            </label>
-            <input type="text" id="inputCreatedBy" placeholder="e.g. Teck Guan User" class="custom-input" required>
           </div>
 
           <div class="form-group">
@@ -1094,6 +1166,173 @@
               <i class="fa-solid fa-check"></i> Save Changes
             </button>
           </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== USER PROFILE MODAL ==================== -->
+  <div id="userProfileModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-user-gear" style="color: var(--primary);"></i>
+          User Profile & Security
+        </h2>
+        <button id="userProfileModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 1rem;">
+        <!-- User Summary Card -->
+        <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+          <div class="user-avatar" id="profileModalAvatar" style="width: 52px; height: 52px; font-size: 1.25rem;">AD</div>
+          <div>
+            <div id="profileModalHeaderName" style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">Admin User</div>
+            <div id="profileModalHeaderEmail" style="font-size: 0.825rem; color: var(--text-muted);">admin@teckguan.com</div>
+            <div style="margin-top: 0.25rem;">
+              <span id="profileModalHeaderRole" class="user-role-badge role-admin">Admin</span>
+            </div>
+          </div>
+        </div>
+
+        <form id="userProfileForm">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Full Name</label>
+            <input type="text" id="profileInputFullName" class="custom-input" placeholder="e.g. John Doe" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Email Address</label>
+            <input type="email" id="profileInputEmail" class="custom-input" placeholder="e.g. user@teckguan.com" required>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--bg-card-border); margin: 1.25rem 0;">
+          
+          <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-main); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.4rem;">
+            <i class="fa-solid fa-key" style="color: var(--primary);"></i> Change Password (Optional)
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Current Password</label>
+            <input type="password" id="profileInputCurrentPass" class="custom-input" placeholder="Enter current password...">
+          </div>
+
+          <div class="grid-form-2col" style="margin-bottom: 1.25rem;">
+            <div class="form-group">
+              <label style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">New Password</label>
+              <input type="password" id="profileInputNewPass" class="custom-input" placeholder="Enter new password...">
+            </div>
+            <div class="form-group">
+              <label style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Confirm New Password</label>
+              <input type="password" id="profileInputConfirmPass" class="custom-input" placeholder="Re-enter new password...">
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button type="button" id="userProfileCancelBtn" class="btn-secondary">Cancel</button>
+            <button type="submit" class="btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> Save Profile Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN ADD USER MODAL ==================== -->
+  <div id="adminAddUserModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-user-plus" style="color: var(--primary);"></i>
+          Add New User Account
+        </h2>
+        <button id="adminAddUserModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="adminAddUserForm" class="modal-body" style="padding-top: 1.25rem;">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Full Name <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="adminAddInputName" class="custom-input" placeholder="e.g. Jane Smith" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Email Address <span style="color: var(--danger);">*</span></label>
+          <input type="email" id="adminAddInputEmail" class="custom-input" placeholder="e.g. jane@teckguan.com" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Initial Password <span style="color: var(--danger);">*</span></label>
+          <input type="password" id="adminAddInputPassword" class="custom-input" placeholder="Minimum 6 characters..." required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Assign Role <span style="color: var(--danger);">*</span></label>
+          <select id="adminAddSelectRole" class="custom-select" required>
+            <option value="User">Standard User</option>
+            <option value="Admin">Administrator</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="adminAddUserCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-user-check"></i> Create Account
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN EDIT USER MODAL -->
+  <div id="adminEditUserModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-user-pen" style="color: var(--primary);"></i> Edit User Account
+        </h3>
+        <button type="button" class="modal-close-btn" id="adminEditUserModalCloseBtn">&times;</button>
+      </div>
+
+      <form id="adminEditUserForm" class="modal-body" style="padding-top: 1.25rem;">
+        <input type="hidden" id="adminEditInputId">
+        
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Full Name <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="adminEditInputName" class="custom-input" placeholder="e.g. Jane Smith" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Email Address <span style="color: var(--danger);">*</span></label>
+          <input type="email" id="adminEditInputEmail" class="custom-input" placeholder="e.g. jane@teckguan.com" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Account Role <span style="color: var(--danger);">*</span></label>
+          <select id="adminEditSelectRole" class="custom-select" required>
+            <option value="User">Standard User</option>
+            <option value="Admin">Administrator</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">Account Status & Permission <span style="color: var(--danger);">*</span></label>
+          <select id="adminEditSelectStatus" class="custom-select" required>
+            <option value="Active">Active (Granted Access)</option>
+            <option value="Pending Approval">Pending Admin Approval</option>
+            <option value="Blocked">Blocked (Restricted Access)</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="adminEditUserCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save User Changes
+          </button>
         </div>
       </form>
     </div>

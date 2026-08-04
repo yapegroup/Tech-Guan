@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - Teck Guan Product Data Management</title>
+  <meta name="description" content="User Authentication Portal for Teck Guan Group Product Data Management System.">
+  <!-- Favicon Logo -->
+  <link rel="icon" type="image/png" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
+  <link rel="shortcut icon" href="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png">
+  <link rel="stylesheet" href="styles.css?v=1.7.0">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="login.js?v=1.8.0" defer></script>
+</head>
+<body class="login-page-body">
+
+  <div class="login-portal-container">
+    <div class="login-portal-card">
+      
+      <!-- Brand Header -->
+      <div class="auth-brand-header">
+        <img src="https://static.wixstatic.com/media/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png/v1/fit/w_2500,h_1330,al_c/269cd3_a4120a71a27b4c208ef8878930144eb9~mv2.png" 
+             alt="Teck Guan Logo" class="auth-logo">
+        <h2>Teck Guan Group</h2>
+        <p>PRODUCT DATA MANAGEMENT</p>
+      </div>
+
+      <!-- Quick Demo Login Bar -->
+      <div style="background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); padding: 0.65rem 0.85rem; margin-bottom: 1.25rem; text-align: center;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">
+          <i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> Quick Demo Logins:
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: center;">
+          <button type="button" id="btnQuickLoginAdmin" class="btn-demo-pill admin" title="Auto-fill & Sign in as Admin">
+            <i class="fa-solid fa-user-shield"></i> Admin Demo
+          </button>
+          <button type="button" id="btnQuickLoginUser" class="btn-demo-pill user" title="Auto-fill & Sign in as User">
+            <i class="fa-solid fa-user"></i> Standard User Demo
+          </button>
+        </div>
+      </div>
+
+      <!-- Auth Error Alert Box -->
+      <div id="authAlertError" class="auth-alert-error" style="display: none;"></div>
+
+      <!-- Auth Navigation Tabs (Sign In / Sign Up) -->
+      <div class="auth-tab-headers">
+        <button type="button" id="btnAuthTabSignIn" class="auth-tab-btn active">
+          <i class="fa-solid fa-right-to-bracket"></i> Sign In
+        </button>
+        <button type="button" id="btnAuthTabSignUp" class="auth-tab-btn">
+          <i class="fa-solid fa-user-plus"></i> Sign Up
+        </button>
+      </div>
+
+      <!-- View 1: Sign In Form -->
+      <div id="authViewSignIn" class="auth-view-content active">
+        <form id="formSignIn">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="auth-input-label"><i class="fa-solid fa-envelope"></i> Email Address</label>
+            <input type="email" id="signInEmail" class="custom-input" placeholder="e.g. admin@teckguan.com" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="auth-input-label" style="margin-bottom: 0;"><i class="fa-solid fa-lock"></i> Password</label>
+              <button type="button" id="btnSignInForgotPass" class="auth-text-link">Forgot password?</button>
+            </div>
+            <input type="password" id="signInPassword" class="custom-input" placeholder="••••••••" required>
+          </div>
+
+          <button type="submit" class="btn-primary auth-submit-btn">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+          </button>
+        </form>
+      </div>
+
+      <!-- View 2: Sign Up Form -->
+      <div id="authViewSignUp" class="auth-view-content">
+        <form id="formSignUp">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label class="auth-input-label"><i class="fa-solid fa-user"></i> Full Name</label>
+            <input type="text" id="signUpName" class="custom-input" placeholder="e.g. John Tan" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label class="auth-input-label"><i class="fa-solid fa-envelope"></i> Email Address</label>
+            <input type="email" id="signUpEmail" class="custom-input" placeholder="e.g. john@teckguan.com" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label class="auth-input-label"><i class="fa-solid fa-lock"></i> Password</label>
+            <input type="password" id="signUpPassword" class="custom-input" placeholder="At least 6 characters..." required>
+          </div>
+
+          <button type="submit" class="btn-primary auth-submit-btn">
+            <i class="fa-solid fa-user-plus"></i> Sign Up Now
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PENDING ADMIN APPROVAL POP-UP MODAL OVERLAY -->
+  <div id="pendingApprovalModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px; text-align: center; padding: 2rem 1.5rem;">
+      
+      <!-- Icon Circle -->
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(245, 158, 11, 0.12); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.25rem auto; border: 1px solid rgba(245, 158, 11, 0.35);">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </div>
+      
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">
+        Registration Successful!
+      </h3>
+      
+      <div style="margin-bottom: 1.25rem;">
+        <span style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.775rem; font-weight: 700; background: rgba(245, 158, 11, 0.15); color: #b45309; padding: 0.25rem 0.75rem; border-radius: 999px; border: 1px solid rgba(245, 158, 11, 0.35);">
+          <i class="fa-solid fa-triangle-exclamation"></i> Pending Admin Approval
+        </span>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 1.5rem; text-align: center;">
+        Thank you, <strong id="pendingUserNameText" style="color: var(--text-main);">User</strong>! Your account has been registered.<br><br>For security purposes, your account requires <strong>Administrator approval</strong> before you can sign in to access the application.
+      </p>
+
+      <button type="button" id="btnBackToSignInFromPendingModal" class="btn-primary" style="width: 100%; height: 42px; font-size: 0.875rem; justify-content: center; display: inline-flex; align-items: center; gap: 0.5rem;">
+        <i class="fa-solid fa-arrow-left"></i> Back to Sign In
+      </button>
+
+    </div>
+  </div>
+
+  <!-- MODAL 1: REQUEST FORGOT PASSWORD EMAIL -->
+  <div id="forgotPasswordModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-key" style="color: var(--primary);"></i> Reset Account Password
+        </h3>
+        <button type="button" class="modal-close-btn" id="forgotPasswordModalCloseBtn">&times;</button>
+      </div>
+
+      <form id="forgotPasswordFormModal" class="modal-body" style="padding-top: 1.25rem;">
+        <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5;">
+          Enter your registered email address below. We will send a secure password reset link to your inbox.
+        </p>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+            Registered Email Address <span style="color: var(--danger);">*</span>
+          </label>
+          <input type="email" id="forgotModalInputEmail" class="custom-input" placeholder="e.g. user@teckguan.com" required>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="forgotPasswordCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-paper-plane"></i> Send Reset Link
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: RESET LINK DISPATCHED CONFIRMATION & SIMULATION -->
+  <div id="passwordResetSentModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 460px; text-align: center; padding: 2rem 1.5rem;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.25rem auto; border: 1px solid rgba(16, 185, 129, 0.35);">
+        <i class="fa-solid fa-paper-plane"></i>
+      </div>
+
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">
+        Password Reset Link Sent!
+      </h3>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 1.25rem;">
+        A password reset link has been dispatched to: <strong id="sentEmailAddressText" style="color: var(--text-main);">user@teckguan.com</strong>
+      </p>
+
+      <!-- Simulated Email Inbox Notification Card -->
+      <div style="background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; text-align: left;">
+        <div style="font-size: 0.775rem; font-weight: 700; color: var(--primary); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
+          <i class="fa-solid fa-envelope"></i> Simulated Email Dispatch Preview
+        </div>
+        <p style="font-size: 0.775rem; color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.45;">
+          Click the button below to simulate clicking the password reset link sent to your inbox:
+        </p>
+        <a id="btnClickSimulatedEmailLink" href="#" class="btn-primary" style="width: 100%; height: 38px; font-size: 0.825rem; justify-content: center; display: inline-flex; text-decoration: none;">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Password Reset Link
+        </a>
+      </div>
+
+      <button type="button" id="btnCloseSentModal" class="btn-secondary" style="width: 100%;">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ENTER NEW PASSWORD & CONFIRM -->
+  <div id="resetPasswordModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-lock-open" style="color: var(--primary);"></i> Create New Password
+        </h3>
+        <button type="button" class="modal-close-btn" id="resetPasswordModalCloseBtn">&times;</button>
+      </div>
+
+      <form id="resetPasswordFormModal" class="modal-body" style="padding-top: 1.25rem;">
+        <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5;">
+          Resetting password for: <strong id="resetTargetEmailText" style="color: var(--text-main);">user@teckguan.com</strong>
+        </p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+            New Password <span style="color: var(--danger);">*</span>
+          </label>
+          <input type="password" id="resetNewPassword" class="custom-input" placeholder="At least 6 characters..." required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
+            Confirm New Password <span style="color: var(--danger);">*</span>
+          </label>
+          <input type="password" id="resetConfirmPassword" class="custom-input" placeholder="Re-type new password..." required>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="resetPasswordCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save New Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>
