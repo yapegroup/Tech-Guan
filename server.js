@@ -55,5 +55,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Teck Guan Product Data Management Server running on port ${PORT}`);
-  console.log(`Access Portal: http://localhost:${PORT}/login`);
+  console.log(`Access Portal: http://localhost:${PORT}/login.html`);
 });

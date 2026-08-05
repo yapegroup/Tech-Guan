@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sessionUser = JSON.parse(storedSession);
         if (sessionUser && sessionUser.status === 'Active') {
           currentUser = sessionUser;
-          window.location.href = 'index';
+          window.location.href = 'index.html';
           return true;
         }
       }
@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser.lastActiveTimestamp = Date.now();
       saveAuthSession(currentUser);
       // JUMP TO WEB APP
-      window.location.href = 'index';
+      window.location.href = 'index.html';
     });
   }
 

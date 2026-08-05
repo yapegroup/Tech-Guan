@@ -4105,7 +4105,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!currentUser) {
       // JUMP TO SEPARATE AUTHENTICATION PAGE
-      window.location.href = 'login';
+      window.location.href = 'login.html';
     } else {
       if (sidebarBadge) sidebarBadge.style.display = 'flex';
 
@@ -4281,7 +4281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSignOut.addEventListener('click', () => {
       currentUser = null;
       saveAuthSession();
-      window.location.href = 'login';
+      window.location.href = 'login.html';
     });
   }
 
