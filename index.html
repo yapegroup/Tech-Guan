@@ -33,12 +33,12 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=1.9.0">
+  <link rel="stylesheet" href="styles.css?v=2.0.1">
   <!-- FontAwesome Icons, SheetJS & Supabase JS SDK -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=2.3.0" defer></script>
+  <script src="app.js?v=2.8.0" defer></script>
 </head>
 <body data-theme="light">
 
@@ -213,14 +213,6 @@
                     </div>
                   </div>
                   <div class="dropdown-divider"></div>
-                  <div id="btnOpenBulkUploadModal" class="export-dropdown-item">
-                    <i class="fa-solid fa-cloud-arrow-up" style="color: #10b981; font-size: 0.9rem;"></i>
-                    <div>
-                      <div class="export-item-title">Upload and Overwrite</div>
-                      <div class="export-item-sub">Bulk replace entire product database</div>
-                    </div>
-                  </div>
-                  <div class="dropdown-divider"></div>
                   <div id="btnOpenReconcileModal" class="export-dropdown-item">
                     <i class="fa-solid fa-scale-balanced" style="color: #f59e0b; font-size: 0.9rem;"></i>
                     <div>
@@ -236,7 +228,7 @@
             <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
               <!-- Export Options Dropdown -->
               <div class="dropdown-wrapper" style="position: relative; display: inline-block;">
-                <button type="button" id="btnExportDropdownToggle" class="btn-action-purple" style="gap: 0.4rem; padding: 0.35rem 0.85rem; height: 29px;">
+                <button type="button" id="btnExportDropdownToggle" class="btn-action-purple" style="gap: 0.45rem; padding: 0.35rem 0.85rem; height: 29px;">
                   <i class="fa-solid fa-file-excel"></i> Export Products <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
                 </button>
                 <div id="exportDropdownMenu" class="export-dropdown-menu">
@@ -942,7 +934,11 @@
             <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.35rem;">
               Product ID / Code <span style="color: var(--danger);">*</span>
             </label>
-            <input type="text" id="editInputProduct" class="custom-input" required readonly style="background-color: rgba(148, 163, 184, 0.1); cursor: not-allowed;">
+            <input type="text" id="editInputProduct" placeholder="e.g. CPLN10010X9750" class="custom-input" required>
+            <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.35;">
+              <i class="fa-solid fa-circle-info" style="color: #f59e0b;"></i>
+              Changing this renames the product. Past cutlist results referencing the old code will no longer match.
+            </div>
           </div>
 
           <div class="form-group">
@@ -1113,81 +1109,6 @@
     </div>
   </div>
 
-  <!-- BULK FILE UPLOAD MODAL -->
-  <div id="bulkUploadModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 600px;">
-      <div class="modal-header">
-        <h2>
-          <i class="fa-solid fa-cloud-arrow-up" style="color: #0284c7;"></i>
-          Upload & Overwrite Product List
-        </h2>
-        <button id="bulkUploadModalCloseBtn" class="modal-close-btn" title="Close Modal">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="modal-body" style="padding-top: 1.25rem;">
-        <!-- Caution Warning Note -->
-        <div class="caution-banner" style="background: rgba(245, 158, 11, 0.09); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 0.75rem;">
-          <i class="fa-solid fa-triangle-exclamation" style="color: #d97706; font-size: 1.25rem; flex-shrink: 0; margin-top: 0.1rem;"></i>
-          <div style="font-size: 0.825rem; color: var(--text-main); line-height: 1.45;">
-            <strong style="color: #d97706; font-weight: 700; display: block; margin-bottom: 0.2rem;">CAUTION: Overwrite Warning</strong>
-            Uploading a product file will <strong>overwrite all existing product records</strong> in the database. Please ensure your Excel file contains complete and up-to-date product list.
-          </div>
-        </div>
-
-        <!-- File Upload Dropzone -->
-        <div class="upload-card" id="supaBulkDropzone" style="padding: 1.5rem;">
-          <input type="file" id="supaBulkInput" accept=".xlsx,.xls,.csv" style="display: none;">
-          <div class="upload-icon" style="color: #0284c7; font-size: 2.2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
-          <div class="upload-sub" style="font-weight: 600; color: var(--text-main);">Drag & drop Product file here or click to browse</div>
-          <div class="upload-sub" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Supports Excel (.xlsx, .xls) and CSV (.csv)</div>
-
-          <div style="margin-top: 0.85rem; padding: 0.65rem 0.85rem; background: rgba(2, 132, 199, 0.06); border: 1px dashed rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); font-size: 0.775rem; text-align: center; color: var(--text-main); max-width: 95%; margin-left: auto; margin-right: auto;">
-            <span style="font-weight: 700; color: var(--primary); display: block; margin-bottom: 0.25rem;"><i class="fa-solid fa-table-columns"></i> Required Column Format:</span>
-            <code style="color: #0284c7; font-weight: 600; font-family: var(--font-sans); word-break: break-word;">Product, Product Description, Product Type, Product Group, Product Category, Base Unit of Measure, Created By</code>
-          </div>
-
-          <button type="button" class="btn-primary" style="margin-top: 1rem;" id="supaBulkBtn">
-            <i class="fa-solid fa-folder-open"></i> Select Excel File
-          </button>
-        </div>
-
-        <!-- File Confirmation Box (Hidden until file selected) -->
-        <div id="supaFileConfirmContainer" style="display: none; margin-top: 1.25rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); padding: 1.1rem;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <i class="fa-solid fa-file-circle-check" style="color: #10b981; font-size: 1.6rem; flex-shrink: 0;"></i>
-            <div style="flex: 1; overflow: hidden;">
-              <div id="supaFileNameBadge" style="font-weight: 700; font-size: 0.9rem; color: var(--text-main); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                No file selected
-              </div>
-              <div id="supaFileRecordBadge" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
-                0 product records detected
-              </div>
-            </div>
-          </div>
-
-          <!-- Confirm & Replace Action Button -->
-          <button type="button" id="btnConfirmBulkReplace" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem 1rem; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); font-weight: 600;">
-            <i class="fa-solid fa-arrows-rotate"></i> Confirm Import & Overwrite Product List
-          </button>
-        </div>
-
-        <!-- Upload Progress Bar -->
-        <div id="supaUploadProgressContainer" style="display: none; width: 100%; margin-top: 1.25rem;">
-          <div class="progress-bar-bg" style="height: 10px;">
-            <div id="supaUploadProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
-          </div>
-          <div id="supaUploadStatusText" style="font-size: 0.8rem; color: var(--primary); margin-top: 0.4rem; text-align: center; font-weight: 600;">Uploading...</div>
-        </div>
-
-        <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
-          <button type="button" id="bulkUploadCancelBtn" class="btn-secondary">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- UPLOAD & RECONCILE FILE SELECTOR MODAL -->
   <div id="reconcileUploadModal" class="modal-overlay">
     <div class="modal-card" style="max-width: 620px;">
@@ -1268,17 +1189,22 @@
           <div style="flex: 1; min-width: 180px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
             <div style="font-size: 0.75rem; font-weight: 700; color: #059669; text-transform: uppercase;">New Products Found</div>
             <div id="badgeCountReconcileNew" style="font-size: 1.4rem; font-weight: 800; color: #10b981; margin-top: 0.2rem;">+0</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">In file, not in database</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">In file, not in Master Products</div>
           </div>
           <div style="flex: 1; min-width: 180px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
             <div style="font-size: 0.75rem; font-weight: 700; color: #d97706; text-transform: uppercase;">Missing Products</div>
             <div id="badgeCountReconcileMissing" style="font-size: 1.4rem; font-weight: 800; color: #f59e0b; margin-top: 0.2rem;">-0</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">In database, missing from file</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">In Master Products, missing from file</div>
           </div>
           <div style="flex: 1; min-width: 180px; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
             <div style="font-size: 0.75rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Matching Records</div>
             <div id="badgeCountReconcileMatching" style="font-size: 1.4rem; font-weight: 800; color: #0284c7; margin-top: 0.2rem;">0</div>
             <div style="font-size: 0.7rem; color: var(--text-muted);">Identical product codes</div>
+          </div>
+          <div style="flex: 1; min-width: 180px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #dc2626; text-transform: uppercase;">Duplicate Products</div>
+            <div id="badgeCountReconcileDuplicate" style="font-size: 1.4rem; font-weight: 800; color: #ef4444; margin-top: 0.2rem;">0</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">Repeated in file, excluded</div>
           </div>
         </div>
 
@@ -1290,13 +1216,16 @@
           <button type="button" id="tabReconcileMissing" class="reconcile-tab-btn" style="padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 700; border: none; background: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
             <i class="fa-solid fa-triangle-exclamation"></i> Missing Products Resolution <span id="reconcileMissingTabBadge" class="tab-notification-badge" style="background: #f59e0b; color: #fff; margin-left: 0.35rem;">0</span>
           </button>
+          <button type="button" id="tabReconcileDuplicate" class="reconcile-tab-btn" style="padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 700; border: none; background: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
+            <i class="fa-solid fa-clone"></i> Duplicate Products <span id="reconcileDuplicateTabBadge" class="tab-notification-badge" style="background: #ef4444; color: #fff; margin-left: 0.35rem;">0</span>
+          </button>
         </div>
 
         <!-- View 1: New Products to Add Table -->
         <div id="viewReconcileNew" class="reconcile-tab-view active">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div style="font-size: 0.8rem; color: var(--text-muted);">
-              Select products from uploaded file to <strong>add into Master Product List</strong>:
+              Select products from uploaded file to <strong>add into Master Product List</strong>, otherwise no products will be added.
             </div>
             <div style="display: flex; gap: 0.5rem;">
               <button type="button" id="btnSelectAllReconcileNew" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Select All</button>
@@ -1328,7 +1257,7 @@
         <div id="viewReconcileMissing" class="reconcile-tab-view" style="display: none;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div style="font-size: 0.8rem; color: var(--text-muted);">
-              Products currently in database but missing from uploaded file. Check to <strong>DELETE from Master List</strong>:
+              Products currently in database but missing from uploaded file. Check to <strong>DELETE from Master List</strong>, otherwise it will remains in Master List.
             </div>
             <div style="display: flex; gap: 0.5rem;">
               <button type="button" id="btnSelectAllReconcileMissing" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Select All to Remove</button>
@@ -1355,11 +1284,39 @@
           </div>
         </div>
 
+        <!-- View 3: Duplicate Products (excluded from reconciliation) -->
+        <div id="viewReconcileDuplicate" class="reconcile-tab-view" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              Repeated Product IDs in the uploaded file. The first occurrence is reconciled; the rows below are <strong style="color: #dc2626;">excluded</strong>:
+            </div>
+          </div>
+          <div class="detail-table-wrapper" style="max-height: 320px; overflow-y: auto;">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th style="width: 35px;">#</th>
+                  <th>Product ID</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Group</th>
+                  <th>Sheet</th>
+                  <th style="width: 70px;">Excel Row</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tableBodyReconcileDuplicate">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Modal Footer Actions -->
         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--bg-card-border);">
           <button type="button" id="reconcileComparisonCancelBtn" class="btn-secondary">Cancel</button>
           <button type="button" id="btnApplyReconciliation" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-weight: 700; padding: 0.65rem 1.25rem;">
-            <i class="fa-solid fa-check-double"></i> Confirm & Apply Reconciliation
+            <i class="fa-solid fa-check-double"></i> <span id="applyReconciliationLabel">Apply Reconciliation</span>
           </button>
         </div>
 

@@ -623,19 +623,21 @@ body {
   transform: translateY(-1px);
 }
 
+/* Mirrors .btn-action-primary exactly (incl. the later override at the bottom of this
+   file) so the two Master Products dropdown toggles differ only in hue. */
 .btn-action-purple {
-  background: rgba(147, 51, 234, 0.08);
-  color: #7e22ce;
-  border: 1px solid rgba(147, 51, 234, 0.28);
+  background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+  color: #ffffff;
+  border: none;
   border-radius: var(--radius-md);
-  padding: 0.25rem 0.75rem;
-  font-size: 0.775rem;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   height: 29px;
   box-sizing: border-box;
   line-height: 1;
@@ -643,10 +645,17 @@ body {
 }
 
 .btn-action-purple:hover:not(:disabled) {
-  background: rgba(147, 51, 234, 0.16);
-  border-color: rgba(147, 51, 234, 0.45);
-  color: #581c87;
+  opacity: 0.92;
   transform: translateY(-1px);
+}
+
+/* The two Master Products dropdown toggles are flat; .btn-action-primary carries a
+   shadow for its other uses, so it is cancelled here by ID rather than on the class. */
+#btnMasterActionsDropdownToggle,
+#btnMasterActionsDropdownToggle:hover,
+#btnExportDropdownToggle,
+#btnExportDropdownToggle:hover {
+  box-shadow: none;
 }
 
 .btn-action-orange {
@@ -1060,6 +1069,19 @@ body {
 .modal-overlay.active {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Second-level dialogs (confirmations, alerts, notices) open on top of a content modal
+   that is still active. Every .modal-overlay shares z-index 1000, so paint order falls
+   back to DOM order - and these four sit EARLIER in index.html than the content modals
+   that trigger them (e.g. #reconcileComparisonModal). Without this they render behind
+   the still-open modal, whose full-viewport overlay also swallows the clicks, so the
+   dialog looks like it never opened. Must stay above #metricDetailModal's 1100. */
+#deleteConfirmModal,
+#actionConfirmModal,
+#errorModal,
+#successNoticeModal {
+  z-index: 1200;
 }
 
 .modal-card {

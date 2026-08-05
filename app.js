@@ -39,26 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const singleRecordCancelBtn = document.getElementById('singleRecordCancelBtn');
   const singleRecordForm = document.getElementById('singleRecordForm');
 
-  const btnOpenBulkUploadModal = document.getElementById('btnOpenBulkUploadModal');
-  const bulkUploadModal = document.getElementById('bulkUploadModal');
-  const bulkUploadModalCloseBtn = document.getElementById('bulkUploadModalCloseBtn');
-  const bulkUploadCancelBtn = document.getElementById('bulkUploadCancelBtn');
-
-  const supaBulkDropzone = document.getElementById('supaBulkDropzone');
-  const supaBulkInput = document.getElementById('supaBulkInput');
-  const supaBulkBtn = document.getElementById('supaBulkBtn');
-  const supaUploadProgressContainer = document.getElementById('supaUploadProgressContainer');
-  const supaUploadProgressBar = document.getElementById('supaUploadProgressBar');
-  const supaUploadStatusText = document.getElementById('supaUploadStatusText');
-
-  const supaFileConfirmContainer = document.getElementById('supaFileConfirmContainer');
-  const supaFileNameBadge = document.getElementById('supaFileNameBadge');
-  const supaFileRecordBadge = document.getElementById('supaFileRecordBadge');
-  const btnConfirmBulkReplace = document.getElementById('btnConfirmBulkReplace');
-
-  let pendingBulkUploadRecords = [];
-  let pendingBulkUploadWorkbook = null;
-
   // Single Record Form Fields
   const inputProduct = document.getElementById('inputProduct');
   const inputProductDesc = document.getElementById('inputProductDesc');
@@ -89,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const editSelectGTIN = document.getElementById('editSelectGTIN');
   const editSelectProductCategory = document.getElementById('editSelectProductCategory');
   const editSelectBaseUOM = document.getElementById('editSelectBaseUOM');
-  const editInputCreatedBy = document.getElementById('editInputCreatedBy');
   const editSelectSAPSynced = document.getElementById('editSelectSAPSynced');
 
   let selectedMasterProductIds = new Set();
@@ -349,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cached = localStorage.getItem('tg_master_products_cache');
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed) && parsed.length > 1000) {
         supabaseProductsList = parsed;
         supabaseProductsList.forEach(item => {
           const rawCode = item.product || item.product_id || '';
@@ -358,6 +337,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cleanVal) masterProductSet.add(cleanVal);
           }
         });
+      } else {
+        // Clear old 1,000-item truncated cache so syncWithSupabase fetches full 9,079+ records
+        localStorage.removeItem('tg_master_products_cache');
       }
     }
   } catch (e) {
@@ -1187,7 +1169,9 @@ document.addEventListener('DOMContentLoaded', () => {
       while (hasMore) {
         const start = page * pageSize;
         const end = start + pageSize - 1;
-        const restUrl = `${SUPABASE_URL}/rest/v1/master_products?select=*&order=created_at.desc`;
+        // id.asc tiebreaker is required: bulk uploads insert in 250-row chunks that share an
+        // identical created_at, and OFFSET paging over a non-unique sort silently drops rows.
+        const restUrl = `${SUPABASE_URL}/rest/v1/master_products?select=*&order=created_at.desc,id.asc`;
         
         const resp = await fetch(restUrl, {
           method: 'GET',
@@ -1333,6 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .from('master_products')
             .select('*')
             .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
             .range(start, end);
 
           if (res.data && Array.isArray(res.data) && res.data.length > 0) {
@@ -1407,16 +1392,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (singleRecordCancelBtn && singleRecordModal) {
     singleRecordCancelBtn.addEventListener('click', () => singleRecordModal.classList.remove('active'));
-  }
-
-  if (btnOpenBulkUploadModal && bulkUploadModal) {
-    btnOpenBulkUploadModal.addEventListener('click', () => bulkUploadModal.classList.add('active'));
-  }
-  if (bulkUploadModalCloseBtn && bulkUploadModal) {
-    bulkUploadModalCloseBtn.addEventListener('click', () => bulkUploadModal.classList.remove('active'));
-  }
-  if (bulkUploadCancelBtn && bulkUploadModal) {
-    bulkUploadCancelBtn.addEventListener('click', () => bulkUploadModal.classList.remove('active'));
   }
 
   const btnMasterSetSynced = document.getElementById('btnMasterSetSynced');
@@ -1675,16 +1650,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Collapses non-breaking spaces and whitespace runs so pasted product codes still match.
+  function normalizeSearchText(value) {
+    return String(value == null ? '' : value)
+      .replace(/[\u00A0\u2007\u202F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function masterProductHaystack(item) {
+    return normalizeSearchText(
+      `${item.product || item.product_id || ''} ${item.description || item.product_description || ''} ${item.product_type || ''} ${item.product_group || ''} ${item.gtin || ''} ${item.product_category || ''} ${item.base_unit || item.base_uom || ''} ${item.created_by || ''}`
+    );
+  }
+
+  function filterMasterProducts(term) {
+    if (!term) return supabaseProductsList.slice();
+    const stripped = term.replace(/\s+/g, '');
+    return supabaseProductsList.filter(item => {
+      const haystack = masterProductHaystack(item);
+      return haystack.includes(term) || haystack.replace(/\s+/g, '').includes(stripped);
+    });
+  }
+
+  function getMasterSearchTerm() {
+    return supaTableSearch ? normalizeSearchText(supaTableSearch.value) : '';
+  }
+
   // --- RENDER MASTER PRODUCT LIVE TABLE WITH ROW SELECTION (NO INLINE ACTIONS) ---
   function renderMasterProductTable() {
-    const filterTerm = supaTableSearch ? supaTableSearch.value.trim().toLowerCase() : '';
+    const filterTerm = getMasterSearchTerm();
     if (btnSupaSearchClear) btnSupaSearchClear.style.display = filterTerm ? 'inline-flex' : 'none';
 
-    const filtered = supabaseProductsList.filter(item => {
-      if (!filterTerm) return true;
-      const haystack = `${item.product || item.product_id || ''} ${item.description || item.product_description || ''} ${item.product_type || ''} ${item.product_group || ''} ${item.gtin || ''} ${item.product_category || ''} ${item.base_unit || item.base_uom || ''} ${item.created_by || ''}`.toLowerCase();
-      return haystack.includes(filterTerm);
-    });
+    const filtered = filterMasterProducts(filterTerm);
 
     // Apply column sorting if active
     if (masterSortColumn !== 'none') {
@@ -1742,11 +1741,14 @@ document.addEventListener('DOMContentLoaded', () => {
     supaMasterTableBody.innerHTML = '';
 
     if (totalCount === 0) {
+      const emptyMsg = filterTerm
+        ? `No product matches “${escapeHtml(supaTableSearch.value.trim())}”.`
+        : 'No master products found. Click "Add Product" or "Upload & Reconcile" above.';
       supaMasterTableBody.innerHTML = `
         <tr>
           <td colspan="10" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
             <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
-            No master products found. Click "Add Product" or "Upload & Overwrite Product List" above.
+            ${emptyMsg}
           </td>
         </tr>
       `;
@@ -1870,7 +1872,6 @@ document.addEventListener('DOMContentLoaded', () => {
       editSelectGTIN.value = targetItem.gtin || ''; initializeCustomDropdownUI(editSelectGTIN);
       editSelectProductCategory.value = targetItem.product_category || ''; initializeCustomDropdownUI(editSelectProductCategory);
       editSelectBaseUOM.value = targetItem.base_unit || targetItem.base_uom || ''; initializeCustomDropdownUI(editSelectBaseUOM);
-      editInputCreatedBy.value = targetItem.created_by || '';
       if (editSelectSAPSynced) {
         editSelectSAPSynced.value = String(Boolean(targetItem.sap_synced));
         initializeCustomDropdownUI(editSelectSAPSynced);
@@ -1899,12 +1900,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const gtinVal = editSelectGTIN ? editSelectGTIN.value.trim() : '';
       const catVal = editSelectProductCategory ? editSelectProductCategory.value.trim() : '';
       const uomVal = editSelectBaseUOM ? editSelectBaseUOM.value.trim() : '';
-      const targetItem = masterProductMap.get(targetId);
+      const targetItem = supabaseProductsList.find(i => (i.product || i.product_id) === targetId);
       const createdByVal = (targetItem && targetItem.created_by) ? targetItem.created_by : getLoggedInUserName();
       const sapSyncedVal = editSelectSAPSynced ? editSelectSAPSynced.value === 'true' : false;
 
-      if (!descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal) {
+      // Product ID / Code is renameable. Normalise it exactly like the import and Add
+      // Product paths so 'aaa 111' and 'AAA111' are still treated as the same code.
+      const rawNewCode = editInputProduct ? editInputProduct.value.trim() : targetId;
+      const newCode = rawNewCode.replace(/[\u00A0\s]+/g, '').toUpperCase();
+      const originalCode = String(targetId).replace(/[\u00A0\s]+/g, '').toUpperCase();
+      const isRename = Boolean(newCode) && newCode !== originalCode;
+
+      if (!rawNewCode || !descVal || !typeVal || !groupVal || !gtinVal || !catVal || !uomVal) {
         showAlert('<strong>Validation Failed:</strong> All fields in the Edit Product form are compulsory.');
+        return;
+      }
+
+      // Unique Product ID / Code Validation (only relevant when actually renaming)
+      if (isRename && masterProductSet.has(newCode)) {
+        showAlert(`<strong>Validation Failed:</strong> Product ID Code '<strong>${escapeHtml(newCode)}</strong>' already exists in the Master Product List. Product ID must be unique.`);
         return;
       }
 
@@ -1920,33 +1934,66 @@ document.addEventListener('DOMContentLoaded', () => {
         sap_synced: sapSyncedVal,
         updated_at: nowIso
       };
+      if (isRename) updatePayload.product_id = newCode;
 
       if (supabaseClient) {
+        // Target the row by its immutable surrogate id where we have one, so a rename
+        // never depends on the column being rewritten. Records served by the offline /
+        // local-Excel fallback tiers carry no id, so key off the old code instead.
+        const rowId = targetItem ? targetItem.id : undefined;
+        const applyUpdate = (payload) => {
+          const query = supabaseClient.from('master_products').update(payload);
+          return (rowId === undefined || rowId === null)
+            ? query.eq('product_id', targetId)
+            : query.eq('id', rowId);
+        };
+
         try {
-          let { error } = await supabaseClient
-            .from('master_products')
-            .update(updatePayload)
-            .eq('product_id', targetId);
+          let { error } = await applyUpdate(updatePayload);
 
           if (error && error.message && error.message.includes('updated_at')) {
             const fallbackPayload = { ...updatePayload };
             delete fallbackPayload.updated_at;
-            const res = await supabaseClient
-              .from('master_products')
-              .update(fallbackPayload)
-              .eq('product_id', targetId);
+            const res = await applyUpdate(fallbackPayload);
             error = res.error;
           }
 
           if (error) throw error;
         } catch (dbErr) {
-          showAlert(`Error updating product in Supabase: ${dbErr.message}`);
+          // A unique-violation here means masterProductSet was stale, so report it as
+          // the duplicate it is rather than as a raw Postgres error.
+          const msg = String(dbErr.message || '');
+          if (dbErr.code === '23505' || msg.toLowerCase().includes('duplicate key')) {
+            showAlert(`<strong>Validation Failed:</strong> Product ID Code '<strong>${escapeHtml(newCode)}</strong>' already exists in the Master Product List. Product ID must be unique.`);
+          } else {
+            showAlert(`Error updating product in Supabase: ${msg}`);
+          }
           return;
+        }
+      } else if (targetItem) {
+        // Offline tier: keep the in-memory cache and lookup set consistent.
+        Object.assign(targetItem, updatePayload);
+        if (isRename) {
+          if (targetItem.product) targetItem.product = newCode;
+          masterProductSet.delete(originalCode);
+          masterProductSet.add(newCode);
         }
       }
 
+      // Carry the row selection across a rename so the checked row and the bottom
+      // action bar keep pointing at the record that was just edited.
+      if (isRename && selectedMasterProductIds.has(targetId)) {
+        selectedMasterProductIds.delete(targetId);
+        selectedMasterProductIds.add(newCode);
+      }
+
       editProductModal.classList.remove('active');
-      showSuccessNoticeModal(`Product '<strong>${escapeHtml(targetId)}</strong>' updated successfully.`, 'Data Updated Successfully');
+      showSuccessNoticeModal(
+        isRename
+          ? `Product '<strong>${escapeHtml(targetId)}</strong>' renamed to '<strong>${escapeHtml(newCode)}</strong>' and updated successfully.`
+          : `Product '<strong>${escapeHtml(targetId)}</strong>' updated successfully.`,
+        'Data Updated Successfully'
+      );
       await syncWithSupabase();
     });
   }
@@ -2006,12 +2053,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnSupaLastPage) {
     btnSupaLastPage.addEventListener('click', () => {
-      const filterTerm = supaTableSearch ? supaTableSearch.value.trim().toLowerCase() : '';
-      const filtered = supabaseProductsList.filter(item => {
-        if (!filterTerm) return true;
-        const haystack = `${item.product || item.product_id || ''} ${item.description || item.product_description || ''} ${item.product_type || ''} ${item.product_group || ''} ${item.gtin || ''} ${item.product_category || ''} ${item.base_unit || item.base_uom || ''} ${item.created_by || ''}`.toLowerCase();
-        return haystack.includes(filterTerm);
-      });
+      const filtered = filterMasterProducts(getMasterSearchTerm());
       const totalPages = Math.max(1, Math.ceil(filtered.length / supaPageSize));
       if (supaCurrentPage < totalPages) {
         supaCurrentPage = totalPages;
@@ -2020,7 +2062,73 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (supaTableSearch) supaTableSearch.addEventListener('input', () => { supaCurrentPage = 1; renderMasterProductTable(); });
+  // Safety net: if the loaded list has a gap, look the term up in Supabase directly rather than
+  // reporting "not found" for a product that exists.
+  let masterSearchLookupToken = 0;
+  let masterSearchDebounce = null;
+
+  async function lookupMissingMasterProducts(term) {
+    const safe = term.replace(/[,()\\*%]/g, ' ').trim();
+    if (safe.length < 3) return [];
+
+    const pattern = `*${safe.replace(/\s+/g, '*')}*`;
+    const rows = [];
+
+    for (const col of ['product_id', 'description']) {
+      const url = `${SUPABASE_URL}/rest/v1/master_products?select=*&${col}=ilike.${encodeURIComponent(pattern)}&limit=200`;
+      try {
+        const resp = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data)) rows.push(...data);
+        }
+      } catch (err) {
+        console.warn('Master search lookup notice:', err);
+      }
+    }
+    return rows;
+  }
+
+  async function runMasterSearchFallback(term) {
+    const token = ++masterSearchLookupToken;
+    const rows = await lookupMissingMasterProducts(term);
+    if (token !== masterSearchLookupToken) return;
+    if (getMasterSearchTerm() !== term) return;
+
+    const known = new Set(
+      supabaseProductsList.map(i => String(i.product || i.product_id || '').replace(/[  \s]+/g, '').toUpperCase())
+    );
+    const added = rows.filter(r => {
+      const key = String(r.product_id || '').replace(/[  \s]+/g, '').toUpperCase();
+      if (!key || known.has(key)) return false;
+      known.add(key);
+      masterProductSet.add(key);
+      return true;
+    });
+
+    if (!added.length) return;
+
+    supabaseProductsList = supabaseProductsList.concat(added);
+    try {
+      localStorage.setItem('tg_master_products_cache', JSON.stringify(supabaseProductsList));
+    } catch (e) {}
+    renderMasterProductTable();
+  }
+
+  if (supaTableSearch) supaTableSearch.addEventListener('input', () => {
+    supaCurrentPage = 1;
+    renderMasterProductTable();
+
+    const term = getMasterSearchTerm();
+    clearTimeout(masterSearchDebounce);
+    if (!term || filterMasterProducts(term).length > 0) return;
+    masterSearchDebounce = setTimeout(() => runMasterSearchFallback(term), 350);
+  });
   if (btnSupaSearchClear) btnSupaSearchClear.addEventListener('click', () => {
     if (supaTableSearch) supaTableSearch.value = '';
     supaCurrentPage = 1; renderMasterProductTable();
@@ -2277,28 +2385,6 @@ document.addEventListener('DOMContentLoaded', () => {
     XLSX.writeFile(workbook, filename);
   }
 
-  // --- BULK UPLOAD EXCEL FILE TO SUPABASE WITH REPLACEMENT CONFIRMATION ---
-  if (supaBulkDropzone) supaBulkDropzone.addEventListener('click', () => supaBulkInput.click());
-  if (supaBulkBtn) supaBulkBtn.addEventListener('click', (e) => { e.stopPropagation(); supaBulkInput.click(); });
-
-  if (btnOpenBulkUploadModal && bulkUploadModal) {
-    btnOpenBulkUploadModal.addEventListener('click', () => {
-      if (supaFileConfirmContainer) supaFileConfirmContainer.style.display = 'none';
-      if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'none';
-      if (supaBulkInput) supaBulkInput.value = '';
-      pendingBulkUploadRecords = [];
-      bulkUploadModal.classList.add('active');
-    });
-  }
-
-  if (supaBulkInput) {
-    supaBulkInput.addEventListener('change', async (e) => {
-      if (e.target.files.length > 0) {
-        await processBulkSupabaseUpload(e.target.files[0]);
-      }
-    });
-  }
-
   function extractRowField(rowObj, candidates) {
     if (!rowObj || typeof rowObj !== 'object') return '';
     const keys = Object.keys(rowObj);
@@ -2326,211 +2412,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return '';
-  }
-
-  async function processBulkSupabaseUpload(file) {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        pendingBulkUploadWorkbook = workbook;
-
-        const extractedRecordsMap = new Map();
-        workbook.SheetNames.forEach(sheetName => {
-          const jsonObjects = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-          if (jsonObjects && jsonObjects.length > 0) {
-            jsonObjects.forEach(rowObj => {
-              const rawProduct = extractRowField(rowObj, ['product', 'product id', 'product_id', 'product code', 'item', 'sku']);
-              const cleanCode = String(rawProduct || '').replace(/[\u00A0\s]+/g, '').toUpperCase();
-
-              if (cleanCode && cleanCode !== 'PRODUCT' && cleanCode !== 'PRODUCTID' && !cleanCode.includes('SUMMARY') && cleanCode.length >= 3) {
-                const descVal = extractRowField(rowObj, ['product description', 'description', 'product_description', 'item description', 'name']);
-                const typeVal = extractRowField(rowObj, ['product type', 'type', 'product_type', 'item type']);
-                const groupVal = extractRowField(rowObj, ['product group', 'group', 'product_group', 'item group']);
-                const gtinVal = extractRowField(rowObj, ['gtin', 'gtin/ean', 'gtin / ean', 'gtin number', 'gtin code', 'ean', 'upc', 'barcode']);
-                const catVal = extractRowField(rowObj, ['product category', 'category', 'product_category', 'item category']);
-                const uomVal = extractRowField(rowObj, ['base unit of measure', 'base unit', 'base_unit', 'base_uom', 'uom', 'unit']);
-                const createdByVal = extractRowField(rowObj, ['created by', 'created_by', 'author', 'user', 'creator']);
-                const sapVal = extractRowField(rowObj, ['sap synced', 'sap_synced', 'sap sync', 'synced', 'sap']);
-                const isSapBool = sapVal ? (sapVal.toLowerCase() === 'yes' || sapVal.toLowerCase() === 'true' || sapVal === '1') : true;
-
-                const nowIso = new Date().toISOString();
-                extractedRecordsMap.set(cleanCode, {
-                  product_id: cleanCode,
-                  description: descVal || '-',
-                  product_type: typeVal || 'FERT',
-                  product_group: groupVal || 'PURLIN',
-                  gtin: gtinVal || 'Product',
-                  product_category: catVal || 'Product',
-                  base_unit: uomVal || 'Piece (PC)',
-                  created_by: createdByVal || getLoggedInUserName(),
-                  sap_synced: isSapBool,
-                  updated_at: nowIso
-                });
-              }
-            });
-          }
-        });
-
-        pendingBulkUploadRecords = Array.from(extractedRecordsMap.values());
-        if (pendingBulkUploadRecords.length === 0) {
-          showAlert('No valid Product records found in the uploaded file.');
-          if (supaFileConfirmContainer) supaFileConfirmContainer.style.display = 'none';
-          return;
-        }
-
-        // Show File Confirmation Box with detected record count
-        if (supaFileNameBadge) supaFileNameBadge.textContent = file.name;
-        if (supaFileRecordBadge) supaFileRecordBadge.textContent = `${pendingBulkUploadRecords.length.toLocaleString()} product records detected`;
-        if (supaFileConfirmContainer) supaFileConfirmContainer.style.display = 'block';
-        if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'none';
-
-      } catch (err) {
-        showAlert(`Error reading file: ${err.message}`);
-        if (supaFileConfirmContainer) supaFileConfirmContainer.style.display = 'none';
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  // --- CONFIRM IMPORT & OVERWRITE PRODUCT LIST WITH DIRECT COLUMN FORMAT CHECK ---
-  if (btnConfirmBulkReplace) {
-    btnConfirmBulkReplace.addEventListener('click', async () => {
-      if (!pendingBulkUploadRecords || pendingBulkUploadRecords.length === 0 || !pendingBulkUploadWorkbook) {
-        showAlert('No product records ready to import.');
-        return;
-      }
-
-      const origBtnHTML = btnConfirmBulkReplace.innerHTML;
-      btnConfirmBulkReplace.disabled = true;
-      btnConfirmBulkReplace.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Checking Column Format...`;
-
-      // 1. DIRECTLY CHECK COLUMN FORMAT BEFORE OVERWRITING
-      const REQUIRED_COLUMNS = [
-        { name: 'Product / Product ID', keys: ['product', 'product id', 'product_id', 'product code', 'sku'] },
-        { name: 'Product Description', keys: ['product description', 'description', 'product_description'] },
-        { name: 'Product Type', keys: ['product type', 'type', 'product_type'] },
-        { name: 'Product Group', keys: ['product group', 'group', 'product_group'] },
-        { name: 'GTIN', keys: ['gtin', 'gtin/ean', 'gtin / ean', 'gtin number', 'gtin code', 'ean', 'upc', 'barcode'] },
-        { name: 'Product Category', keys: ['product category', 'category', 'product_category'] },
-        { name: 'Base Unit of Measure', keys: ['base unit of measure', 'base unit', 'base_unit', 'base_uom', 'uom', 'unit'] },
-        { name: 'Created By', keys: ['created by', 'created_by'] }
-      ];
-
-      const foundHeaders = new Set();
-      pendingBulkUploadWorkbook.SheetNames.forEach(sName => {
-        const rows = XLSX.utils.sheet_to_json(pendingBulkUploadWorkbook.Sheets[sName], { header: 1 });
-        if (rows && rows.length > 0 && Array.isArray(rows[0])) {
-          rows[0].forEach(h => {
-            if (h) foundHeaders.add(String(h).trim().toLowerCase());
-          });
-        }
-      });
-
-      const missingCols = [];
-      REQUIRED_COLUMNS.forEach(col => {
-        const match = col.keys.some(k => foundHeaders.has(k));
-        if (!match) {
-          missingCols.push(col.name);
-        }
-      });
-
-      if (missingCols.length > 0) {
-        btnConfirmBulkReplace.disabled = false;
-        btnConfirmBulkReplace.innerHTML = origBtnHTML;
-
-        const errorModal = document.getElementById('errorModal');
-        const errorModalText = document.getElementById('errorModalText');
-        if (errorModalText && errorModal) {
-          errorModalText.innerHTML = `
-            <strong>Column Format Validation Failed:</strong><br>
-            The uploaded product file is missing the following required columns:<br>
-            <strong style="color: #ef4444; font-size: 0.95rem; display: block; margin: 0.6rem 0;">
-              ${missingCols.join(', ')}
-            </strong>
-            Please upload the right data format containing all 8 compulsory product columns before overwriting the database.
-          `;
-          errorModal.classList.add('active');
-        }
-        return;
-      }
-
-      // 2. If format valid, prompt confirmation and overwrite
-      const countStr = pendingBulkUploadRecords.length.toLocaleString();
-      const fileName = supaFileNameBadge ? supaFileNameBadge.textContent : 'selected file';
-
-      btnConfirmBulkReplace.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Overwriting Database...`;
-
-      try {
-        if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'block';
-        if (supaUploadProgressBar) supaUploadProgressBar.style.width = '10%';
-        if (supaUploadStatusText) supaUploadStatusText.textContent = 'Clearing existing database records...';
-
-        if (supabaseClient) {
-          // Clear existing products in Supabase
-          try {
-            await supabaseClient.from('master_products').delete().neq('product_id', '_FORCE_CLEAR_ALL_');
-          } catch (delErr) {
-            console.warn('Notice clearing existing products:', delErr.message);
-          }
-
-          // Batch Insert / Upsert new records in Chunks of 250
-          const chunkSize = 250;
-          const totalChunks = Math.ceil(pendingBulkUploadRecords.length / chunkSize);
-
-          for (let i = 0; i < totalChunks; i++) {
-            const chunk = pendingBulkUploadRecords.slice(i * chunkSize, (i + 1) * chunkSize);
-
-            let { error } = await supabaseClient
-              .from('master_products')
-              .upsert(chunk, { onConflict: 'product_id' });
-
-            if (error && error.message && error.message.includes('updated_at')) {
-              const strippedChunk = chunk.map(item => {
-                const c = { ...item };
-                delete c.updated_at;
-                return c;
-              });
-              const res = await supabaseClient
-                .from('master_products')
-                .upsert(strippedChunk, { onConflict: 'product_id' });
-              error = res.error;
-            }
-
-            if (error) {
-              console.error('Chunk upload error:', error.message);
-              throw error;
-            }
-
-            const pct = Math.round(((i + 1) / totalChunks) * 100);
-            if (supaUploadProgressBar) supaUploadProgressBar.style.width = pct + '%';
-            if (supaUploadStatusText) supaUploadStatusText.textContent = `Importing chunk ${i + 1} of ${totalChunks} (${pct}%)...`;
-          }
-        } else {
-          masterProductSet.clear();
-          supabaseProductsList = [...pendingBulkUploadRecords];
-          pendingBulkUploadRecords.forEach(rec => masterProductSet.add(rec.product_id));
-        }
-
-        if (supaUploadStatusText) supaUploadStatusText.textContent = `Successfully overwritten master list with ${countStr} products!`;
-
-        setTimeout(() => {
-          btnConfirmBulkReplace.disabled = false;
-          btnConfirmBulkReplace.innerHTML = origBtnHTML;
-          if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'none';
-          if (supaFileConfirmContainer) supaFileConfirmContainer.style.display = 'none';
-          if (bulkUploadModal) bulkUploadModal.classList.remove('active');
-        }, 1400);
-
-        await syncWithSupabase();
-      } catch (err) {
-        btnConfirmBulkReplace.disabled = false;
-        btnConfirmBulkReplace.innerHTML = origBtnHTML;
-        showAlert(`Bulk replacement error: ${err.message}`);
-        if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'none';
-      }
-    });
   }
 
   // ==================== PRODUCT ACTIONS DROPDOWN & UPLOAD & RECONCILE ENGINE ====================
@@ -2567,6 +2448,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let pendingReconcileRecords = [];
   let reconcileNewList = [];
   let reconcileMissingList = [];
+  let reconcileDuplicateList = [];
   let reconcileMatchingCount = 0;
 
   const reconcileUploadModal = document.getElementById('reconcileUploadModal');
@@ -2582,6 +2464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openReconcileUploadModal() {
     pendingReconcileRecords = [];
+    reconcileDuplicateList = [];
     if (reconcileFileInput) reconcileFileInput.value = '';
     if (reconcileFileConfirmContainer) reconcileFileConfirmContainer.style.display = 'none';
     if (reconcileUploadModal) reconcileUploadModal.classList.add('active');
@@ -2644,11 +2527,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const extractedRecordsMap = new Map();
+        const firstSeenAt = new Map();
+        reconcileDuplicateList = [];
 
         workbook.SheetNames.forEach(sheetName => {
           const jsonObjects = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
           if (jsonObjects && jsonObjects.length > 0) {
-            jsonObjects.forEach(rowObj => {
+            jsonObjects.forEach((rowObj, rowIdx) => {
               const rawProduct = extractRowField(rowObj, ['product', 'product id', 'product_id', 'product code', 'item', 'sku']);
               const cleanCode = String(rawProduct || '').replace(/[\u00A0\s]+/g, '').toUpperCase();
 
@@ -2664,7 +2549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isSapBool = sapVal ? (sapVal.toLowerCase() === 'yes' || sapVal.toLowerCase() === 'true' || sapVal === '1') : false;
 
                 const nowIso = new Date().toISOString();
-                extractedRecordsMap.set(cleanCode, {
+                const record = {
                   product_id: cleanCode,
                   description: descVal || '-',
                   product_type: typeVal || 'FERT',
@@ -2675,7 +2560,18 @@ document.addEventListener('DOMContentLoaded', () => {
                   created_by: createdByVal || getLoggedInUserName(),
                   sap_synced: isSapBool,
                   updated_at: nowIso
-                });
+                };
+
+                // sheet_to_json skips the header row, so data index 0 is spreadsheet row 2.
+                const excelRow = rowIdx + 2;
+
+                if (extractedRecordsMap.has(cleanCode)) {
+                  const kept = firstSeenAt.get(cleanCode);
+                  reconcileDuplicateList.push({ ...record, sheetName, excelRow, keptSheet: kept.sheetName, keptRow: kept.excelRow });
+                } else {
+                  extractedRecordsMap.set(cleanCode, record);
+                  firstSeenAt.set(cleanCode, { sheetName, excelRow });
+                }
               }
             });
           }
@@ -2706,21 +2602,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeCountReconcileNew = document.getElementById('badgeCountReconcileNew');
   const badgeCountReconcileMissing = document.getElementById('badgeCountReconcileMissing');
   const badgeCountReconcileMatching = document.getElementById('badgeCountReconcileMatching');
+  const badgeCountReconcileDuplicate = document.getElementById('badgeCountReconcileDuplicate');
   const reconcileNewTabBadge = document.getElementById('reconcileNewTabBadge');
   const reconcileMissingTabBadge = document.getElementById('reconcileMissingTabBadge');
+  const reconcileDuplicateTabBadge = document.getElementById('reconcileDuplicateTabBadge');
   const tableBodyReconcileNew = document.getElementById('tableBodyReconcileNew');
   const tableBodyReconcileMissing = document.getElementById('tableBodyReconcileMissing');
+  const tableBodyReconcileDuplicate = document.getElementById('tableBodyReconcileDuplicate');
 
   const tabReconcileNew = document.getElementById('tabReconcileNew');
   const tabReconcileMissing = document.getElementById('tabReconcileMissing');
+  const tabReconcileDuplicate = document.getElementById('tabReconcileDuplicate');
   const viewReconcileNew = document.getElementById('viewReconcileNew');
   const viewReconcileMissing = document.getElementById('viewReconcileMissing');
+  const viewReconcileDuplicate = document.getElementById('viewReconcileDuplicate');
 
   const btnSelectAllReconcileNew = document.getElementById('btnSelectAllReconcileNew');
   const btnDeselectAllReconcileNew = document.getElementById('btnDeselectAllReconcileNew');
   const btnSelectAllReconcileMissing = document.getElementById('btnSelectAllReconcileMissing');
   const btnDeselectAllReconcileMissing = document.getElementById('btnDeselectAllReconcileMissing');
   const btnApplyReconciliation = document.getElementById('btnApplyReconciliation');
+  const applyReconciliationLabel = document.getElementById('applyReconciliationLabel');
 
   if (btnStartReconciliationCompare) {
     btnStartReconciliationCompare.addEventListener('click', () => {
@@ -2775,12 +2677,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (badgeCountReconcileNew) badgeCountReconcileNew.textContent = `+${reconcileNewList.length.toLocaleString()}`;
     if (badgeCountReconcileMissing) badgeCountReconcileMissing.textContent = `-${reconcileMissingList.length.toLocaleString()}`;
     if (badgeCountReconcileMatching) badgeCountReconcileMatching.textContent = reconcileMatchingCount.toLocaleString();
+    if (badgeCountReconcileDuplicate) badgeCountReconcileDuplicate.textContent = reconcileDuplicateList.length.toLocaleString();
 
     if (reconcileNewTabBadge) reconcileNewTabBadge.textContent = reconcileNewList.length.toLocaleString();
     if (reconcileMissingTabBadge) reconcileMissingTabBadge.textContent = reconcileMissingList.length.toLocaleString();
+    if (reconcileDuplicateTabBadge) reconcileDuplicateTabBadge.textContent = reconcileDuplicateList.length.toLocaleString();
 
     renderReconcileNewTable();
     renderReconcileMissingTable();
+    renderReconcileDuplicateTable();
+    updateApplyReconciliationState();
 
     // Default to New Products tab
     if (tabReconcileNew) tabReconcileNew.click();
@@ -2796,29 +2702,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (reconcileComparisonCancelBtn) reconcileComparisonCancelBtn.addEventListener('click', closeReconcileComparisonModal);
 
   // Tab switching inside Reconcile Comparison Modal
-  if (tabReconcileNew && tabReconcileMissing) {
-    tabReconcileNew.addEventListener('click', () => {
-      tabReconcileNew.classList.add('active');
-      tabReconcileNew.style.borderBottomColor = '#10b981';
-      tabReconcileNew.style.color = '#10b981';
-      tabReconcileMissing.classList.remove('active');
-      tabReconcileMissing.style.borderBottomColor = 'transparent';
-      tabReconcileMissing.style.color = 'var(--text-muted)';
-      viewReconcileNew.style.display = 'block';
-      viewReconcileMissing.style.display = 'none';
-    });
+  const reconcileTabs = [
+    { tab: tabReconcileNew, view: viewReconcileNew, color: '#10b981' },
+    { tab: tabReconcileMissing, view: viewReconcileMissing, color: '#f59e0b' },
+    { tab: tabReconcileDuplicate, view: viewReconcileDuplicate, color: '#ef4444' }
+  ].filter(t => t.tab && t.view);
 
-    tabReconcileMissing.addEventListener('click', () => {
-      tabReconcileMissing.classList.add('active');
-      tabReconcileMissing.style.borderBottomColor = '#f59e0b';
-      tabReconcileMissing.style.color = '#f59e0b';
-      tabReconcileNew.classList.remove('active');
-      tabReconcileNew.style.borderBottomColor = 'transparent';
-      tabReconcileNew.style.color = 'var(--text-muted)';
-      viewReconcileMissing.style.display = 'block';
-      viewReconcileNew.style.display = 'none';
+  reconcileTabs.forEach(({ tab }) => {
+    tab.addEventListener('click', () => {
+      reconcileTabs.forEach(entry => {
+        const isActive = entry.tab === tab;
+        entry.tab.classList.toggle('active', isActive);
+        entry.tab.style.borderBottomColor = isActive ? entry.color : 'transparent';
+        entry.tab.style.color = isActive ? entry.color : 'var(--text-muted)';
+        entry.view.style.display = isActive ? 'block' : 'none';
+      });
     });
-  }
+  });
 
   // Render New Products Table
   function renderReconcileNewTable() {
@@ -2856,6 +2756,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const chk = tr.querySelector('.chk-reconcile-new');
       chk.addEventListener('change', (e) => {
         reconcileNewList[idx].checked = e.target.checked;
+        updateApplyReconciliationState();
       });
 
       fragment.appendChild(tr);
@@ -2898,6 +2799,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const chk = tr.querySelector('.chk-reconcile-missing');
       chk.addEventListener('change', (e) => {
         reconcileMissingList[idx].checked = e.target.checked;
+        updateApplyReconciliationState();
       });
 
       fragment.appendChild(tr);
@@ -2905,17 +2807,54 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBodyReconcileMissing.appendChild(fragment);
   }
 
+  // Render Duplicate Products Table (informational - these rows are excluded)
+  function renderReconcileDuplicateTable() {
+    if (!tableBodyReconcileDuplicate) return;
+    tableBodyReconcileDuplicate.innerHTML = '';
+
+    if (reconcileDuplicateList.length === 0) {
+      tableBodyReconcileDuplicate.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 1.8rem; margin-bottom: 0.4rem; display: block;"></i>
+            No duplicate Product IDs found. Every product in the uploaded file is unique.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    reconcileDuplicateList.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td><strong style="color: #dc2626; font-family: var(--font-mono);">${escapeHtml(item.product_id)}</strong></td>
+        <td>${escapeHtml(item.description)}</td>
+        <td><span class="badge-status type-${(item.product_type || 'FERT').toLowerCase()}">${escapeHtml(item.product_type || 'FERT')}</span></td>
+        <td>${escapeHtml(item.product_group || '-')}</td>
+        <td>${escapeHtml(item.sheetName || '-')}</td>
+        <td>${item.excelRow}</td>
+        <td><span class="badge-status dup">Excluded &mdash; kept row ${item.keptRow}</span></td>
+      `;
+      fragment.appendChild(tr);
+    });
+    tableBodyReconcileDuplicate.appendChild(fragment);
+  }
+
   // Select All / Deselect All Handlers
   if (btnSelectAllReconcileNew) {
     btnSelectAllReconcileNew.addEventListener('click', () => {
       reconcileNewList.forEach(item => item.checked = true);
       renderReconcileNewTable();
+      updateApplyReconciliationState();
     });
   }
   if (btnDeselectAllReconcileNew) {
     btnDeselectAllReconcileNew.addEventListener('click', () => {
       reconcileNewList.forEach(item => item.checked = false);
       renderReconcileNewTable();
+      updateApplyReconciliationState();
     });
   }
 
@@ -2923,13 +2862,39 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSelectAllReconcileMissing.addEventListener('click', () => {
       reconcileMissingList.forEach(item => item.checked = true);
       renderReconcileMissingTable();
+      updateApplyReconciliationState();
     });
   }
   if (btnDeselectAllReconcileMissing) {
     btnDeselectAllReconcileMissing.addEventListener('click', () => {
       reconcileMissingList.forEach(item => item.checked = false);
       renderReconcileMissingTable();
+      updateApplyReconciliationState();
     });
+  }
+
+  // The button states its own consequence so an unreviewed "Remove 0" is visible at the
+  // moment of clicking, rather than hidden behind the Missing Products tab.
+  function updateApplyReconciliationState() {
+    if (!btnApplyReconciliation) return;
+    const addCount = reconcileNewList.filter(i => i.checked).length;
+    const removeCount = reconcileMissingList.filter(i => i.checked).length;
+    const selectedCount = addCount + removeCount;
+
+    btnApplyReconciliation.disabled = selectedCount === 0;
+
+    if (applyReconciliationLabel) {
+      applyReconciliationLabel.textContent = selectedCount === 0
+        ? 'Nothing to Reconcile'
+        : `Apply — Add ${addCount.toLocaleString()}, Remove ${removeCount.toLocaleString()}`;
+    }
+
+    const unreviewedMissing = reconcileMissingList.length - removeCount;
+    btnApplyReconciliation.title = selectedCount === 0
+      ? 'Nothing to reconcile - select at least one product to add or remove'
+      : (unreviewedMissing > 0
+        ? `${unreviewedMissing.toLocaleString()} missing product(s) are not selected and will be kept in the Master Product List. Review the Missing Products Resolution tab if that is not intended.`
+        : '');
   }
 
   // Apply Reconciliation Changes Handler
