@@ -249,26 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAuthTabSignIn) btnAuthTabSignIn.addEventListener('click', () => switchAuthTab(btnAuthTabSignIn, authViewSignIn));
   if (btnAuthTabSignUp) btnAuthTabSignUp.addEventListener('click', () => switchAuthTab(btnAuthTabSignUp, authViewSignUp));
 
-  // --- QUICK DEMO LOGIN BUTTONS ---
-  const btnQuickLoginAdmin = document.getElementById('btnQuickLoginAdmin');
-  const btnQuickLoginUser = document.getElementById('btnQuickLoginUser');
-
-  if (btnQuickLoginAdmin) {
-    btnQuickLoginAdmin.addEventListener('click', () => {
-      document.getElementById('signInEmail').value = 'admin@teckguan.com';
-      document.getElementById('signInPassword').value = 'admin123';
-      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
-  }
-
-  if (btnQuickLoginUser) {
-    btnQuickLoginUser.addEventListener('click', () => {
-      document.getElementById('signInEmail').value = 'user@teckguan.com';
-      document.getElementById('signInPassword').value = 'user123';
-      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
-  }
-
   // --- SIGN IN FORM HANDLER ---
   const formSignIn = document.getElementById('formSignIn');
   if (formSignIn) {

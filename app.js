@@ -4162,26 +4162,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAuthTabForgot) btnAuthTabForgot.addEventListener('click', () => switchAuthTab(btnAuthTabForgot, authViewForgot));
   if (btnLinkToForgot) btnLinkToForgot.addEventListener('click', () => switchAuthTab(btnAuthTabForgot, authViewForgot));
 
-  // --- QUICK DEMO LOGIN BUTTONS ---
-  const btnQuickLoginAdmin = document.getElementById('btnQuickLoginAdmin');
-  const btnQuickLoginUser = document.getElementById('btnQuickLoginUser');
-
-  if (btnQuickLoginAdmin) {
-    btnQuickLoginAdmin.addEventListener('click', () => {
-      document.getElementById('signInEmail').value = 'admin@teckguan.com';
-      document.getElementById('signInPassword').value = 'admin123';
-      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
-  }
-
-  if (btnQuickLoginUser) {
-    btnQuickLoginUser.addEventListener('click', () => {
-      document.getElementById('signInEmail').value = 'user@teckguan.com';
-      document.getElementById('signInPassword').value = 'user123';
-      document.getElementById('formSignIn').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    });
-  }
-
   // --- SIGN IN FORM HANDLER ---
   const formSignIn = document.getElementById('formSignIn');
   if (formSignIn) {
@@ -4401,17 +4381,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // Your own account can never be deleted, so it is not counted here. The button is
+    // disabled outright when it is the only thing selected, rather than letting the
+    // click through to a refusal - and the count always states what will really go.
+    const selfSelected = Boolean(currentUser && selectedUserIds.has(currentUser.id));
+    const deletableCount = selfSelected ? totalSelected - 1 : totalSelected;
+
     if (btnDelete) {
-      if (totalSelected > 0) {
+      if (deletableCount > 0) {
         btnDelete.disabled = false;
         btnDelete.style.opacity = '1';
         btnDelete.style.cursor = 'pointer';
-        btnDelete.innerHTML = `<i class="fa-solid fa-trash-can"></i> Delete Selected (${totalSelected})`;
+        btnDelete.innerHTML = `<i class="fa-solid fa-trash-can"></i> Delete Selected (${deletableCount})`;
+        btnDelete.title = selfSelected
+          ? 'Your own logged-in account is excluded and will not be deleted'
+          : '';
       } else {
         btnDelete.disabled = true;
         btnDelete.style.opacity = '0.5';
         btnDelete.style.cursor = 'not-allowed';
         btnDelete.innerHTML = `<i class="fa-solid fa-trash-can"></i> Delete Selected`;
+        btnDelete.title = selfSelected
+          ? 'You cannot delete your own logged-in account'
+          : '';
       }
     }
 
@@ -4480,7 +4472,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       tr.innerHTML = `
         <td style="text-align: center;">
-          <input type="checkbox" class="user-select-check" data-id="${user.id}" ${isChecked ? 'checked' : ''} style="cursor: pointer;">
+          <input type="checkbox" class="user-select-check" data-id="${user.id}" ${isChecked ? 'checked' : ''}${isSelf ? ' title="Your own account cannot be deleted"' : ''} style="cursor: pointer;">
         </td>
         <td style="text-align: center; font-family: var(--font-mono); color: var(--text-dim);">${idx + 1}</td>
         <td>
