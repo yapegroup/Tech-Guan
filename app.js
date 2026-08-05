@@ -2737,13 +2737,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function runReconciliationAnalysis() {
     const existingMap = new Map();
     supabaseProductsList.forEach(p => {
-      const code = (p.product_id || p.product || '').toUpperCase();
+      const rawCode = p.product_id || p.product || '';
+      const code = String(rawCode).replace(/[\u00A0\s]+/g, '').toUpperCase();
       if (code) existingMap.set(code, p);
     });
 
     const fileMap = new Map();
     pendingReconcileRecords.forEach(p => {
-      const code = (p.product_id || p.product || '').toUpperCase();
+      const rawCode = p.product_id || p.product || '';
+      const code = String(rawCode).replace(/[\u00A0\s]+/g, '').toUpperCase();
       if (code) fileMap.set(code, p);
     });
 
