@@ -38,7 +38,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=1.9.0" defer></script>
+  <script src="app.js?v=2.1.0" defer></script>
 </head>
 <body data-theme="light">
 
@@ -198,14 +198,38 @@
             </div>
           </div>
           <div class="master-table-controls" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-            <!-- Left Action Buttons: Add Product, Upload & Overwrite -->
+            <!-- Left Action: Consolidated Product Actions Dropdown -->
             <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
-              <button type="button" id="btnSingleRecordModal" class="btn-action-primary">
-                <i class="fa-solid fa-plus-circle"></i> Add Product
-              </button>
-              <button type="button" id="btnOpenBulkUploadModal" class="btn-action-success">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Upload and Overwrite
-              </button>
+              <div class="dropdown-wrapper" style="position: relative; display: inline-block;">
+                <button type="button" id="btnMasterActionsDropdownToggle" class="btn-action-primary" style="gap: 0.45rem; padding: 0.35rem 0.85rem; height: 29px;">
+                  <i class="fa-solid fa-boxes-packing"></i> Product Actions <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
+                </button>
+                <div id="masterActionsDropdownMenu" class="export-dropdown-menu" style="min-width: 240px;">
+                  <div id="btnSingleRecordModal" class="export-dropdown-item">
+                    <i class="fa-solid fa-plus-circle" style="color: var(--primary); font-size: 0.9rem;"></i>
+                    <div>
+                      <div class="export-item-title">Add Product</div>
+                      <div class="export-item-sub">Manually add single product record</div>
+                    </div>
+                  </div>
+                  <div class="dropdown-divider"></div>
+                  <div id="btnOpenBulkUploadModal" class="export-dropdown-item">
+                    <i class="fa-solid fa-cloud-arrow-up" style="color: #10b981; font-size: 0.9rem;"></i>
+                    <div>
+                      <div class="export-item-title">Upload and Overwrite</div>
+                      <div class="export-item-sub">Bulk replace entire product database</div>
+                    </div>
+                  </div>
+                  <div class="dropdown-divider"></div>
+                  <div id="btnOpenReconcileModal" class="export-dropdown-item">
+                    <i class="fa-solid fa-scale-balanced" style="color: #f59e0b; font-size: 0.9rem;"></i>
+                    <div>
+                      <div class="export-item-title">Upload & Reconcile</div>
+                      <div class="export-item-sub">Compare file & selectively merge list</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Right Controls: Export Products Dropdown, Search Box & Refresh Button -->
@@ -1160,6 +1184,185 @@
         <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
           <button type="button" id="bulkUploadCancelBtn" class="btn-secondary">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD & RECONCILE FILE SELECTOR MODAL -->
+  <div id="reconcileUploadModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-scale-balanced" style="color: #f59e0b;"></i>
+          Upload & Reconcile Product List
+        </h2>
+        <button id="reconcileUploadModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 1.25rem;">
+        <!-- Information Banner -->
+        <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 0.75rem;">
+          <i class="fa-solid fa-circle-info" style="color: #0284c7; font-size: 1.25rem; flex-shrink: 0; margin-top: 0.1rem;"></i>
+          <div style="font-size: 0.825rem; color: var(--text-main); line-height: 1.45;">
+            <strong style="color: #0284c7; font-weight: 700; display: block; margin-bottom: 0.2rem;">Selective Reconciliation Mode</strong>
+            Upload an Excel product file to compare against the active Master Product List. The system will detect <strong>New Products</strong> and <strong>Missing Products</strong> so you can decide item-by-item what to add or keep.
+          </div>
+        </div>
+
+        <!-- File Dropzone -->
+        <div class="upload-card" id="reconcileDropzone" style="padding: 1.5rem;">
+          <input type="file" id="reconcileFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+          <div class="upload-icon" style="color: #f59e0b; font-size: 2.2rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-file-excel"></i></div>
+          <div class="upload-sub" style="font-weight: 600; color: var(--text-main);">Drag & drop Product file here or click to browse</div>
+          <div class="upload-sub" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Supports Excel (.xlsx, .xls) and CSV (.csv)</div>
+
+          <button type="button" class="btn-primary" style="margin-top: 1rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none;" id="btnSelectReconcileFile">
+            <i class="fa-solid fa-folder-open"></i> Select Excel File
+          </button>
+        </div>
+
+        <!-- File Confirmation & Comparison Action -->
+        <div id="reconcileFileConfirmContainer" style="display: none; margin-top: 1.25rem; background: var(--info-box-bg); border: 1px solid var(--info-box-border); border-radius: var(--radius-md); padding: 1.1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-file-circle-check" style="color: #10b981; font-size: 1.6rem; flex-shrink: 0;"></i>
+            <div style="flex: 1; overflow: hidden;">
+              <div id="reconcileFileNameBadge" style="font-weight: 700; font-size: 0.9rem; color: var(--text-main); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                No file selected
+              </div>
+              <div id="reconcileFileRecordBadge" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
+                0 product records detected
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btnStartReconciliationCompare" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem 1rem; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); font-weight: 600;">
+            <i class="fa-solid fa-code-compare"></i> Start Reconciliation Comparison
+          </button>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+          <button type="button" id="reconcileUploadCancelBtn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECONCILIATION COMPARISON & DECISION WORKSPACE MODAL -->
+  <div id="reconcileComparisonModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 900px; width: 95%;">
+      <div class="modal-header">
+        <h2>
+          <i class="fa-solid fa-scale-balanced" style="color: #f59e0b;"></i>
+          Product Reconciliation Workspace
+        </h2>
+        <button id="reconcileComparisonModalCloseBtn" class="modal-close-btn" title="Close Modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 1rem;">
+        <!-- Summary Stats Header Badges -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+          <div style="flex: 1; min-width: 180px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #059669; text-transform: uppercase;">New Products Found</div>
+            <div id="badgeCountReconcileNew" style="font-size: 1.4rem; font-weight: 800; color: #10b981; margin-top: 0.2rem;">+0</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">In file, not in database</div>
+          </div>
+          <div style="flex: 1; min-width: 180px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #d97706; text-transform: uppercase;">Missing Products</div>
+            <div id="badgeCountReconcileMissing" style="font-size: 1.4rem; font-weight: 800; color: #f59e0b; margin-top: 0.2rem;">-0</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">In database, missing from file</div>
+          </div>
+          <div style="flex: 1; min-width: 180px; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); padding: 0.75rem 1rem; text-align: center;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Matching Records</div>
+            <div id="badgeCountReconcileMatching" style="font-size: 1.4rem; font-weight: 800; color: #0284c7; margin-top: 0.2rem;">0</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">Identical product codes</div>
+          </div>
+        </div>
+
+        <!-- Tab Navigation for New Products vs Missing Products -->
+        <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--bg-card-border); margin-bottom: 1rem;">
+          <button type="button" id="tabReconcileNew" class="reconcile-tab-btn active" style="padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 700; border: none; background: none; border-bottom: 3px solid #10b981; color: #10b981; cursor: pointer;">
+            <i class="fa-solid fa-plus-circle"></i> New Products to Add <span id="reconcileNewTabBadge" class="tab-notification-badge" style="background: #10b981; color: #fff; margin-left: 0.35rem;">0</span>
+          </button>
+          <button type="button" id="tabReconcileMissing" class="reconcile-tab-btn" style="padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 700; border: none; background: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Missing Products Resolution <span id="reconcileMissingTabBadge" class="tab-notification-badge" style="background: #f59e0b; color: #fff; margin-left: 0.35rem;">0</span>
+          </button>
+        </div>
+
+        <!-- View 1: New Products to Add Table -->
+        <div id="viewReconcileNew" class="reconcile-tab-view active">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              Select products from uploaded file to <strong>add into Master Product List</strong>:
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btnSelectAllReconcileNew" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Select All</button>
+              <button type="button" id="btnDeselectAllReconcileNew" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Deselect All</button>
+            </div>
+          </div>
+          <div class="detail-table-wrapper" style="max-height: 320px; overflow-y: auto;">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;">Add?</th>
+                  <th style="width: 35px;">#</th>
+                  <th>Product ID</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Group</th>
+                  <th>Category</th>
+                  <th>UOM</th>
+                </tr>
+              </thead>
+              <tbody id="tableBodyReconcileNew">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 2: Missing Products Resolution Table -->
+        <div id="viewReconcileMissing" class="reconcile-tab-view" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              Products currently in database but missing from uploaded file. Check to <strong>DELETE from Master List</strong>:
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btnSelectAllReconcileMissing" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Select All to Remove</button>
+              <button type="button" id="btnDeselectAllReconcileMissing" class="btn-secondary btn-sm" style="font-size: 0.75rem;">Keep All (Deselect)</button>
+            </div>
+          </div>
+          <div class="detail-table-wrapper" style="max-height: 320px; overflow-y: auto;">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px; text-align: center;">Remove?</th>
+                  <th style="width: 35px;">#</th>
+                  <th>Product ID</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Group</th>
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody id="tableBodyReconcileMissing">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--bg-card-border);">
+          <button type="button" id="reconcileComparisonCancelBtn" class="btn-secondary">Cancel</button>
+          <button type="button" id="btnApplyReconciliation" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-weight: 700; padding: 0.65rem 1.25rem;">
+            <i class="fa-solid fa-check-double"></i> Confirm & Apply Reconciliation
+          </button>
+        </div>
+
       </div>
     </div>
   </div>

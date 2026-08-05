@@ -1176,22 +1176,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- DIRECT REST API FETCH FROM SUPABASE (100% RELIABLE) ---
+  // --- DIRECT REST API FETCH FROM SUPABASE (PAGINATED FOR 9,000+ RECORDS) ---
   async function fetchSupabaseMasterProductsDirect() {
     try {
-      const restUrl = `${SUPABASE_URL}/rest/v1/master_products?select=*&order=created_at.desc`;
-      const resp = await fetch(restUrl, {
-        method: 'GET',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      let allRecords = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const start = page * pageSize;
+        const end = start + pageSize - 1;
+        const restUrl = `${SUPABASE_URL}/rest/v1/master_products?select=*&order=created_at.desc`;
+        
+        const resp = await fetch(restUrl, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Range-Unit': 'items',
+            'Range': `${start}-${end}`
+          }
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data) && data.length > 0) {
+            allRecords = allRecords.concat(data);
+            if (data.length < pageSize) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } else {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
         }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (Array.isArray(data) && data.length > 0) {
-          return data;
-        }
+      }
+
+      if (allRecords.length > 0) {
+        return allRecords;
       }
     } catch (err) {
       console.warn('REST API fetch notice:', err);
@@ -1294,12 +1320,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Tier 1b: Try SDK client query if REST returned nothing
       if (!data && supabaseClient) {
-        const res = await supabaseClient
-          .from('master_products')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-          data = res.data;
+        let allClientRecords = [];
+        let page = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const start = page * pageSize;
+          const end = start + pageSize - 1;
+
+          const res = await supabaseClient
+            .from('master_products')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(start, end);
+
+          if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+            allClientRecords = allClientRecords.concat(res.data);
+            if (res.data.length < pageSize) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        if (allClientRecords.length > 0) {
+          data = allClientRecords;
         }
       }
 
@@ -2481,6 +2530,496 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert(`Bulk replacement error: ${err.message}`);
         if (supaUploadProgressContainer) supaUploadProgressContainer.style.display = 'none';
       }
+    });
+  }
+
+  // ==================== PRODUCT ACTIONS DROPDOWN & UPLOAD & RECONCILE ENGINE ====================
+  const btnMasterActionsDropdownToggle = document.getElementById('btnMasterActionsDropdownToggle');
+  const masterActionsDropdownMenu = document.getElementById('masterActionsDropdownMenu');
+
+  if (btnMasterActionsDropdownToggle && masterActionsDropdownMenu) {
+    btnMasterActionsDropdownToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isActive = masterActionsDropdownMenu.classList.contains('active');
+      if (isActive) {
+        masterActionsDropdownMenu.classList.remove('active');
+      } else {
+        masterActionsDropdownMenu.classList.add('active');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!btnMasterActionsDropdownToggle.contains(e.target) && !masterActionsDropdownMenu.contains(e.target)) {
+        masterActionsDropdownMenu.classList.remove('active');
+      }
+    });
+  }
+
+  const btnOpenReconcileModal = document.getElementById('btnOpenReconcileModal');
+  if (btnOpenReconcileModal) {
+    btnOpenReconcileModal.addEventListener('click', () => {
+      if (masterActionsDropdownMenu) masterActionsDropdownMenu.classList.remove('active');
+      openReconcileUploadModal();
+    });
+  }
+
+  // State variables for Reconciliation
+  let pendingReconcileRecords = [];
+  let reconcileNewList = [];
+  let reconcileMissingList = [];
+  let reconcileMatchingCount = 0;
+
+  const reconcileUploadModal = document.getElementById('reconcileUploadModal');
+  const reconcileUploadModalCloseBtn = document.getElementById('reconcileUploadModalCloseBtn');
+  const reconcileUploadCancelBtn = document.getElementById('reconcileUploadCancelBtn');
+  const reconcileDropzone = document.getElementById('reconcileDropzone');
+  const reconcileFileInput = document.getElementById('reconcileFileInput');
+  const btnSelectReconcileFile = document.getElementById('btnSelectReconcileFile');
+  const reconcileFileConfirmContainer = document.getElementById('reconcileFileConfirmContainer');
+  const reconcileFileNameBadge = document.getElementById('reconcileFileNameBadge');
+  const reconcileFileRecordBadge = document.getElementById('reconcileFileRecordBadge');
+  const btnStartReconciliationCompare = document.getElementById('btnStartReconciliationCompare');
+
+  function openReconcileUploadModal() {
+    pendingReconcileRecords = [];
+    if (reconcileFileInput) reconcileFileInput.value = '';
+    if (reconcileFileConfirmContainer) reconcileFileConfirmContainer.style.display = 'none';
+    if (reconcileUploadModal) reconcileUploadModal.classList.add('active');
+  }
+
+  function closeReconcileUploadModal() {
+    if (reconcileUploadModal) reconcileUploadModal.classList.remove('active');
+  }
+
+  if (reconcileUploadModalCloseBtn) reconcileUploadModalCloseBtn.addEventListener('click', closeReconcileUploadModal);
+  if (reconcileUploadCancelBtn) reconcileUploadCancelBtn.addEventListener('click', closeReconcileUploadModal);
+
+  if (btnSelectReconcileFile && reconcileFileInput) {
+    btnSelectReconcileFile.addEventListener('click', () => reconcileFileInput.click());
+  }
+
+  if (reconcileDropzone && reconcileFileInput) {
+    reconcileDropzone.addEventListener('click', (e) => {
+      if (e.target !== btnSelectReconcileFile && !btnSelectReconcileFile.contains(e.target)) {
+        reconcileFileInput.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      reconcileDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        reconcileDropzone.classList.add('drag-active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      reconcileDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        reconcileDropzone.classList.remove('drag-active');
+      });
+    });
+
+    reconcileDropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files && files.length > 0) {
+        reconcileFileInput.files = files;
+        processReconcileUploadFile(files[0]);
+      }
+    });
+
+    reconcileFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        processReconcileUploadFile(e.target.files[0]);
+      }
+    });
+  }
+
+  function processReconcileUploadFile(file) {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const extractedRecordsMap = new Map();
+
+        workbook.SheetNames.forEach(sheetName => {
+          const jsonObjects = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+          if (jsonObjects && jsonObjects.length > 0) {
+            jsonObjects.forEach(rowObj => {
+              const rawProduct = extractRowField(rowObj, ['product', 'product id', 'product_id', 'product code', 'item', 'sku']);
+              const cleanCode = String(rawProduct || '').replace(/[\u00A0\s]+/g, '').toUpperCase();
+
+              if (cleanCode && cleanCode !== 'PRODUCT' && cleanCode !== 'PRODUCTID' && !cleanCode.includes('SUMMARY') && cleanCode.length >= 3) {
+                const descVal = extractRowField(rowObj, ['product description', 'description', 'product_description', 'item description', 'name']);
+                const typeVal = extractRowField(rowObj, ['product type', 'type', 'product_type', 'item type']);
+                const groupVal = extractRowField(rowObj, ['product group', 'group', 'product_group', 'item group']);
+                const gtinVal = extractRowField(rowObj, ['gtin', 'gtin/ean', 'gtin / ean', 'gtin number', 'gtin code', 'ean', 'upc', 'barcode']);
+                const catVal = extractRowField(rowObj, ['product category', 'category', 'product_category', 'item category']);
+                const uomVal = extractRowField(rowObj, ['base unit of measure', 'base unit', 'base_unit', 'base_uom', 'uom', 'unit']);
+                const createdByVal = extractRowField(rowObj, ['created by', 'created_by', 'author', 'user', 'creator']);
+                const sapVal = extractRowField(rowObj, ['sap synced', 'sap_synced', 'sap sync', 'synced', 'sap']);
+                const isSapBool = sapVal ? (sapVal.toLowerCase() === 'yes' || sapVal.toLowerCase() === 'true' || sapVal === '1') : false;
+
+                const nowIso = new Date().toISOString();
+                extractedRecordsMap.set(cleanCode, {
+                  product_id: cleanCode,
+                  description: descVal || '-',
+                  product_type: typeVal || 'FERT',
+                  product_group: groupVal || 'PURLIN',
+                  gtin: gtinVal || 'Product',
+                  product_category: catVal || 'Product',
+                  base_unit: uomVal || 'Piece (PC)',
+                  created_by: createdByVal || getLoggedInUserName(),
+                  sap_synced: isSapBool,
+                  updated_at: nowIso
+                });
+              }
+            });
+          }
+        });
+
+        pendingReconcileRecords = Array.from(extractedRecordsMap.values());
+        if (pendingReconcileRecords.length === 0) {
+          showAlert('No valid product records found in uploaded file.');
+          if (reconcileFileConfirmContainer) reconcileFileConfirmContainer.style.display = 'none';
+          return;
+        }
+
+        if (reconcileFileNameBadge) reconcileFileNameBadge.textContent = file.name;
+        if (reconcileFileRecordBadge) reconcileFileRecordBadge.textContent = `${pendingReconcileRecords.length.toLocaleString()} product records detected`;
+        if (reconcileFileConfirmContainer) reconcileFileConfirmContainer.style.display = 'block';
+
+      } catch (err) {
+        showAlert(`Error reading reconciliation file: ${err.message}`);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // --- START RECONCILIATION COMPARISON WORKSPACE ---
+  const reconcileComparisonModal = document.getElementById('reconcileComparisonModal');
+  const reconcileComparisonModalCloseBtn = document.getElementById('reconcileComparisonModalCloseBtn');
+  const reconcileComparisonCancelBtn = document.getElementById('reconcileComparisonCancelBtn');
+  const badgeCountReconcileNew = document.getElementById('badgeCountReconcileNew');
+  const badgeCountReconcileMissing = document.getElementById('badgeCountReconcileMissing');
+  const badgeCountReconcileMatching = document.getElementById('badgeCountReconcileMatching');
+  const reconcileNewTabBadge = document.getElementById('reconcileNewTabBadge');
+  const reconcileMissingTabBadge = document.getElementById('reconcileMissingTabBadge');
+  const tableBodyReconcileNew = document.getElementById('tableBodyReconcileNew');
+  const tableBodyReconcileMissing = document.getElementById('tableBodyReconcileMissing');
+
+  const tabReconcileNew = document.getElementById('tabReconcileNew');
+  const tabReconcileMissing = document.getElementById('tabReconcileMissing');
+  const viewReconcileNew = document.getElementById('viewReconcileNew');
+  const viewReconcileMissing = document.getElementById('viewReconcileMissing');
+
+  const btnSelectAllReconcileNew = document.getElementById('btnSelectAllReconcileNew');
+  const btnDeselectAllReconcileNew = document.getElementById('btnDeselectAllReconcileNew');
+  const btnSelectAllReconcileMissing = document.getElementById('btnSelectAllReconcileMissing');
+  const btnDeselectAllReconcileMissing = document.getElementById('btnDeselectAllReconcileMissing');
+  const btnApplyReconciliation = document.getElementById('btnApplyReconciliation');
+
+  if (btnStartReconciliationCompare) {
+    btnStartReconciliationCompare.addEventListener('click', () => {
+      if (!pendingReconcileRecords || pendingReconcileRecords.length === 0) {
+        showAlert('Please select a valid Excel file first.');
+        return;
+      }
+
+      closeReconcileUploadModal();
+      runReconciliationAnalysis();
+    });
+  }
+
+  function runReconciliationAnalysis() {
+    const existingMap = new Map();
+    supabaseProductsList.forEach(p => {
+      const code = (p.product_id || p.product || '').toUpperCase();
+      if (code) existingMap.set(code, p);
+    });
+
+    const fileMap = new Map();
+    pendingReconcileRecords.forEach(p => {
+      const code = (p.product_id || p.product || '').toUpperCase();
+      if (code) fileMap.set(code, p);
+    });
+
+    // 1. New Products: in file, but not in existing db
+    reconcileNewList = [];
+    fileMap.forEach((rec, code) => {
+      if (!existingMap.has(code)) {
+        reconcileNewList.push({ ...rec, checked: true });
+      }
+    });
+
+    // 2. Missing Products: in existing db, but not in file
+    reconcileMissingList = [];
+    existingMap.forEach((rec, code) => {
+      if (!fileMap.has(code)) {
+        reconcileMissingList.push({ ...rec, checked: false });
+      }
+    });
+
+    // 3. Matching Count
+    reconcileMatchingCount = 0;
+    fileMap.forEach((rec, code) => {
+      if (existingMap.has(code)) reconcileMatchingCount++;
+    });
+
+    // Update badges
+    if (badgeCountReconcileNew) badgeCountReconcileNew.textContent = `+${reconcileNewList.length.toLocaleString()}`;
+    if (badgeCountReconcileMissing) badgeCountReconcileMissing.textContent = `-${reconcileMissingList.length.toLocaleString()}`;
+    if (badgeCountReconcileMatching) badgeCountReconcileMatching.textContent = reconcileMatchingCount.toLocaleString();
+
+    if (reconcileNewTabBadge) reconcileNewTabBadge.textContent = reconcileNewList.length.toLocaleString();
+    if (reconcileMissingTabBadge) reconcileMissingTabBadge.textContent = reconcileMissingList.length.toLocaleString();
+
+    renderReconcileNewTable();
+    renderReconcileMissingTable();
+
+    // Default to New Products tab
+    if (tabReconcileNew) tabReconcileNew.click();
+
+    if (reconcileComparisonModal) reconcileComparisonModal.classList.add('active');
+  }
+
+  function closeReconcileComparisonModal() {
+    if (reconcileComparisonModal) reconcileComparisonModal.classList.remove('active');
+  }
+
+  if (reconcileComparisonModalCloseBtn) reconcileComparisonModalCloseBtn.addEventListener('click', closeReconcileComparisonModal);
+  if (reconcileComparisonCancelBtn) reconcileComparisonCancelBtn.addEventListener('click', closeReconcileComparisonModal);
+
+  // Tab switching inside Reconcile Comparison Modal
+  if (tabReconcileNew && tabReconcileMissing) {
+    tabReconcileNew.addEventListener('click', () => {
+      tabReconcileNew.classList.add('active');
+      tabReconcileNew.style.borderBottomColor = '#10b981';
+      tabReconcileNew.style.color = '#10b981';
+      tabReconcileMissing.classList.remove('active');
+      tabReconcileMissing.style.borderBottomColor = 'transparent';
+      tabReconcileMissing.style.color = 'var(--text-muted)';
+      viewReconcileNew.style.display = 'block';
+      viewReconcileMissing.style.display = 'none';
+    });
+
+    tabReconcileMissing.addEventListener('click', () => {
+      tabReconcileMissing.classList.add('active');
+      tabReconcileMissing.style.borderBottomColor = '#f59e0b';
+      tabReconcileMissing.style.color = '#f59e0b';
+      tabReconcileNew.classList.remove('active');
+      tabReconcileNew.style.borderBottomColor = 'transparent';
+      tabReconcileNew.style.color = 'var(--text-muted)';
+      viewReconcileMissing.style.display = 'block';
+      viewReconcileNew.style.display = 'none';
+    });
+  }
+
+  // Render New Products Table
+  function renderReconcileNewTable() {
+    if (!tableBodyReconcileNew) return;
+    tableBodyReconcileNew.innerHTML = '';
+
+    if (reconcileNewList.length === 0) {
+      tableBodyReconcileNew.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 1.8rem; margin-bottom: 0.4rem; display: block;"></i>
+            No new products found in uploaded file. All products already exist in database.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    reconcileNewList.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <input type="checkbox" class="chk-reconcile-new" data-idx="${idx}" ${item.checked ? 'checked' : ''} style="cursor: pointer;">
+        </td>
+        <td>${idx + 1}</td>
+        <td><strong style="color: var(--primary); font-family: var(--font-mono);">${escapeHtml(item.product_id)}</strong></td>
+        <td>${escapeHtml(item.description)}</td>
+        <td><span class="badge-status type-${(item.product_type || 'FERT').toLowerCase()}">${escapeHtml(item.product_type || 'FERT')}</span></td>
+        <td>${escapeHtml(item.product_group || '-')}</td>
+        <td>${escapeHtml(item.product_category || '-')}</td>
+        <td>${escapeHtml(item.base_unit || '-')}</td>
+      `;
+
+      const chk = tr.querySelector('.chk-reconcile-new');
+      chk.addEventListener('change', (e) => {
+        reconcileNewList[idx].checked = e.target.checked;
+      });
+
+      fragment.appendChild(tr);
+    });
+    tableBodyReconcileNew.appendChild(fragment);
+  }
+
+  // Render Missing Products Table
+  function renderReconcileMissingTable() {
+    if (!tableBodyReconcileMissing) return;
+    tableBodyReconcileMissing.innerHTML = '';
+
+    if (reconcileMissingList.length === 0) {
+      tableBodyReconcileMissing.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-shield-check" style="color: #0284c7; font-size: 1.8rem; margin-bottom: 0.4rem; display: block;"></i>
+            No missing products. Every existing product in the database was present in uploaded file.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    reconcileMissingList.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <input type="checkbox" class="chk-reconcile-missing" data-idx="${idx}" ${item.checked ? 'checked' : ''} style="cursor: pointer;">
+        </td>
+        <td>${idx + 1}</td>
+        <td><strong style="color: #d97706; font-family: var(--font-mono);">${escapeHtml(item.product_id || item.product)}</strong></td>
+        <td>${escapeHtml(item.description || item.product_description)}</td>
+        <td><span class="badge-status type-${(item.product_type || 'FERT').toLowerCase()}">${escapeHtml(item.product_type || 'FERT')}</span></td>
+        <td>${escapeHtml(item.product_group || '-')}</td>
+        <td>${escapeHtml(item.product_category || '-')}</td>
+      `;
+
+      const chk = tr.querySelector('.chk-reconcile-missing');
+      chk.addEventListener('change', (e) => {
+        reconcileMissingList[idx].checked = e.target.checked;
+      });
+
+      fragment.appendChild(tr);
+    });
+    tableBodyReconcileMissing.appendChild(fragment);
+  }
+
+  // Select All / Deselect All Handlers
+  if (btnSelectAllReconcileNew) {
+    btnSelectAllReconcileNew.addEventListener('click', () => {
+      reconcileNewList.forEach(item => item.checked = true);
+      renderReconcileNewTable();
+    });
+  }
+  if (btnDeselectAllReconcileNew) {
+    btnDeselectAllReconcileNew.addEventListener('click', () => {
+      reconcileNewList.forEach(item => item.checked = false);
+      renderReconcileNewTable();
+    });
+  }
+
+  if (btnSelectAllReconcileMissing) {
+    btnSelectAllReconcileMissing.addEventListener('click', () => {
+      reconcileMissingList.forEach(item => item.checked = true);
+      renderReconcileMissingTable();
+    });
+  }
+  if (btnDeselectAllReconcileMissing) {
+    btnDeselectAllReconcileMissing.addEventListener('click', () => {
+      reconcileMissingList.forEach(item => item.checked = false);
+      renderReconcileMissingTable();
+    });
+  }
+
+  // Apply Reconciliation Changes Handler
+  if (btnApplyReconciliation) {
+    btnApplyReconciliation.addEventListener('click', async () => {
+      const newToAdd = reconcileNewList.filter(item => item.checked);
+      const missingToRemove = reconcileMissingList.filter(item => item.checked);
+
+      if (newToAdd.length === 0 && missingToRemove.length === 0) {
+        showAlert('<strong>No Changes Selected:</strong> Please select at least 1 new product to add or 1 missing product to remove.');
+        return;
+      }
+
+      showActionConfirmModal({
+        title: `<i class="fa-solid fa-scale-balanced" style="color: #f59e0b;"></i> Confirm Product Reconciliation`,
+        iconClass: `fa-solid fa-code-compare`,
+        iconColor: `#f59e0b`,
+        iconBg: `rgba(245, 158, 11, 0.12)`,
+        btnText: `<i class="fa-solid fa-check"></i> Apply Reconciliation`,
+        btnClass: `btn-action-primary`,
+        message: `Are you sure you want to apply the following reconciliation actions?<br><br>` +
+                 `• Add <strong>${newToAdd.length.toLocaleString()}</strong> new products to Master Product List.<br>` +
+                 `• Remove <strong>${missingToRemove.length.toLocaleString()}</strong> missing products from Master Product List.`,
+        onConfirm: async () => {
+          closeReconcileComparisonModal();
+
+          // 1. Delete selected missing items
+          if (missingToRemove.length > 0) {
+            const removeIds = missingToRemove.map(item => (item.product_id || item.product).toUpperCase());
+            const removeSet = new Set(removeIds);
+
+            supabaseProductsList = supabaseProductsList.filter(p => {
+              const code = (p.product_id || p.product || '').toUpperCase();
+              return !removeSet.has(code);
+            });
+
+            if (supabaseClient) {
+              try {
+                await supabaseClient.from('master_products').delete().in('product_id', removeIds);
+              } catch (dbErr) {
+                console.warn('Notice removing products from Supabase DB:', dbErr.message);
+              }
+            }
+          }
+
+          // 2. Add selected new items
+          if (newToAdd.length > 0) {
+            const newRecordsToUpsert = newToAdd.map(item => ({
+              product_id: item.product_id,
+              description: item.description,
+              product_type: item.product_type,
+              product_group: item.product_group,
+              gtin: item.gtin,
+              product_category: item.product_category,
+              base_unit: item.base_unit,
+              created_by: getLoggedInUserName(),
+              sap_synced: false,
+              updated_at: new Date().toISOString()
+            }));
+
+            newRecordsToUpsert.forEach(rec => {
+              supabaseProductsList.unshift(rec);
+            });
+
+            if (supabaseClient) {
+              try {
+                await supabaseClient.from('master_products').upsert(newRecordsToUpsert, { onConflict: 'product_id' });
+              } catch (dbErr) {
+                console.warn('Notice adding new products to Supabase DB:', dbErr.message);
+              }
+            }
+          }
+
+          // 3. Save cache & refresh UI
+          try {
+            localStorage.setItem('tg_master_products_cache', JSON.stringify(supabaseProductsList));
+          } catch (e) {}
+
+          masterProductSet.clear();
+          supabaseProductsList.forEach(p => {
+            const code = p.product_id || p.product;
+            if (code) masterProductSet.add(code);
+          });
+
+          renderMasterProductTable();
+
+          showSuccessNoticeModal(
+            `Reconciliation complete! Added <strong>${newToAdd.length.toLocaleString()}</strong> new products and removed <strong>${missingToRemove.length.toLocaleString()}</strong> obsolete records.`,
+            'Reconciliation Complete'
+          );
+        }
+      });
     });
   }
 
